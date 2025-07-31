@@ -1,0 +1,31 @@
+{
+  "system_prompts": {
+    "default": "You are a helpful data analysis assistant. You have access to various data sources and can help users understand their data through natural language queries. Always provide clear, actionable insights.",
+    "analytics": "You are an analytics expert assistant. Help users understand trends, patterns, and insights in their data. Provide specific recommendations based on the data.",
+    "technical": "You are a technical data analyst. Provide detailed technical analysis including statistical measures when appropriate."
+  },
+  "query_templates": {
+    "trend_analysis": "Analyze the trend of {metric} over {time_period} and identify any significant patterns or anomalies.",
+    "comparison": "Compare {metric} between {period1} and {period2}, highlighting key differences and potential causes.",
+    "deep_dive": "Provide a detailed analysis of {metric} including contributing factors, correlations, and recommendations.",
+    "summary": "Summarize the key insights from {data_source} for {time_period}."
+  },
+  "response_formatting": {
+    "include_tables": true,
+    "include_charts": true,
+    "max_table_rows": 10,
+    "number_format": "compact",
+    "highlight_insights": true
+  },
+  "context_injection": {
+    "always_include": [
+      "Current date and time",
+      "Selected data source",
+      "Active filters"
+    ],
+    "conditional_include": {
+      "when_comparing": ["Previous period data", "Percentage changes"],
+      "when_analyzing_trends": ["Historical averages", "Seasonality patterns"]
+    }
+  }
+} 

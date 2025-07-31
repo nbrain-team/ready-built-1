@@ -1,0 +1,73 @@
+{
+  "data_sources": [
+    {
+      "name": "example_analytics",
+      "display_name": "Example Analytics Data",
+      "description": "Sample configuration for analytics-style data",
+      "metrics": [
+        {
+          "id": "total_value",
+          "display_name": "Total Value",
+          "type": "number",
+          "format": "currency",
+          "aggregation": "sum",
+          "description": "Total monetary value"
+        },
+        {
+          "id": "count",
+          "display_name": "Count",
+          "type": "number",
+          "format": "integer",
+          "aggregation": "sum",
+          "description": "Number of items"
+        },
+        {
+          "id": "average_rate",
+          "display_name": "Average Rate",
+          "type": "number",
+          "format": "percentage",
+          "aggregation": "avg",
+          "description": "Average percentage rate"
+        }
+      ],
+      "dimensions": [
+        {
+          "id": "category",
+          "display_name": "Category",
+          "type": "string",
+          "description": "Main category grouping"
+        },
+        {
+          "id": "date",
+          "display_name": "Date",
+          "type": "date",
+          "description": "Date of the record"
+        },
+        {
+          "id": "entity_name",
+          "display_name": "Entity Name",
+          "type": "string",
+          "description": "Name of the entity"
+        }
+      ],
+      "default_date_range": "last_30_days",
+      "available_date_ranges": [
+        "today",
+        "yesterday",
+        "last_7_days",
+        "last_30_days",
+        "last_90_days",
+        "this_month",
+        "last_month",
+        "custom"
+      ]
+    }
+  ],
+  "ui_config": {
+    "enable_drill_down": true,
+    "enable_comparisons": true,
+    "enable_export": true,
+    "chart_types": ["line", "bar", "pie", "table"],
+    "default_chart_type": "line"
+  }
+} 
