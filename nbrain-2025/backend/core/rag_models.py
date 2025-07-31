@@ -3,7 +3,7 @@ RAG (Retrieval-Augmented Generation) Database Models
 Adapted from Generic RAG Platform for nBrain integration
 """
 
-from sqlalchemy import Column, Integer, String, Text, JSON, DateTime, ForeignKey, Boolean, Float
+from sqlalchemy import Column, Integer, String, Text, JSON, DateTime, ForeignKey, Boolean, Float, Index
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from .database import Base
@@ -24,23 +24,24 @@ class DataSource(Base):
     entries = relationship("DataEntry", back_populates="source", cascade="all, delete-orphan")
 
 class DataEntry(Base):
-    """Stores actual data entries for RAG queries"""
+    """Individual data entries for RAG system"""
     __tablename__ = 'rag_data_entries'
     
     id = Column(Integer, primary_key=True)
     source_id = Column(Integer, ForeignKey('rag_data_sources.id'), nullable=False)
-    entity_id = Column(String(200), nullable=False)  # Unique identifier within source
+    entity_id = Column(String(200), nullable=False)
     timestamp = Column(DateTime)
-    data = Column(JSON)  # Flexible storage for metrics and dimensions
-    metadata = Column(JSON)  # Additional metadata
+    data = Column(JSON)  # Stores the actual data
+    entry_metadata = Column(JSON)  # Renamed from 'metadata' to avoid SQLAlchemy conflict
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
     source = relationship("DataSource", back_populates="entries")
     
-    # Indexes for performance
+    # Indexes
     __table_args__ = (
-        {'extend_existing': True}
+        Index('idx_rag_data_entries_source_entity', 'source_id', 'entity_id'),
+        Index('idx_rag_data_entries_timestamp', 'timestamp'),
     )
 
 class RAGChatHistory(Base):

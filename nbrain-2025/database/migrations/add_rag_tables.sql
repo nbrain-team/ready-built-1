@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS rag_data_entries (
     entity_id VARCHAR(200) NOT NULL,
     timestamp TIMESTAMP,
     data JSONB,
-    metadata JSONB,
+    entry_metadata JSONB,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
