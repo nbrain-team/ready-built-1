@@ -1,0 +1,107 @@
+services:
+  # Frontend Service
+  - type: web
+    name: nbrain-rag-frontend
+    env: static
+    rootDir: nbrain-2025/frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        fromService:
+          type: web
+          name: nbrain-rag-backend
+          property: url
+    headers:
+      - key: Content-Security-Policy
+        value: "script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' wss: https:;"
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+  # Backend Service
+  - type: web
+    name: nbrain-rag-backend
+    runtime: docker
+    dockerfilePath: ./nbrain-2025/backend/Dockerfile
+    dockerContext: ./nbrain-2025/backend
+    plan: pro
+    envVars:
+      # Database
+      - key: DATABASE_URL
+        sync: false
+      
+      # AI Services
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      
+      # Pinecone Vector DB
+      - key: PINECONE_API_KEY
+        sync: false
+      - key: PINECONE_INDEX_NAME
+        sync: false
+      - key: PINECONE_ENVIRONMENT
+        sync: false
+      
+      # Authentication
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: SECRET_KEY
+        generateValue: true
+      
+      # Google Services
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        value: https://nbrain-rag-backend.onrender.com/oracle/auth/callback
+      - key: GOOGLE_SERVICE_ACCOUNT_JSON
+        sync: false
+      
+      # Voice Services
+      - key: DEEPGRAM_API_KEY
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_PHONE_NUMBER
+        sync: false
+      
+      # Other Services
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: BRIGHTDATA_API_TOKEN
+        sync: false
+      - key: BRIGHTDATA_BROWSER_URL
+        sync: false
+      - key: SERP_API_KEY
+        sync: false
+      
+      # RAG Configuration
+      - key: USE_MCP
+        value: "true"
+      - key: FLASK_SECRET_KEY
+        generateValue: true
+      
+    autoDeploy: false
+    region: oregon
+
+databases:
+  - name: nbrain-rag-db
+    databaseName: nbrain_rag_production
+    user: nbrain_rag_user
+    region: oregon
+    plan: pro
+
+version: "1" 

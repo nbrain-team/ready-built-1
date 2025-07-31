@@ -1,0 +1,20 @@
+services:
+- type: web
+  name: generic-rag-platform
+  runtime: python
+  plan: pro
+  envVars:
+  - key: DATABASE_URL
+    sync: false
+  - key: OPENAI_API_KEY
+    sync: false
+  - key: FLASK_SECRET_KEY
+    generateValue: true
+  - key: USE_MCP
+    value: "true"
+  region: oregon
+  buildCommand: "./build.sh"
+  startCommand: "gunicorn --timeout 120 'app:create_app()'"
+  autoDeploy: false
+  rootDir: .
+version: "1" 

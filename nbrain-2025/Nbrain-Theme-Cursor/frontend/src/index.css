@@ -1,0 +1,339 @@
+* {
+    box-sizing: border-box;
+}
+
+:root {
+    --primary: #313d74;
+    --primary-light: #e8eaf6;
+    --bg: #f7fafd;
+    --sidebar-bg: #ffffff;
+    --sidebar-width-collapsed: 70px;
+    --sidebar-width-expanded: 240px;
+    --card-bg: #fff;
+    --shadow: 0 2px 16px rgba(0,0,0,0.06);
+    --border: #e5e7eb;
+    --radius: 14px;
+    --gray: #64748b;
+    --gray-light: #f1f5f9;
+    --accent: #313d74;
+    --text-primary: #222;
+    --text-secondary: #4b5563;
+    --header-bg: #ffffff;
+    --icon-color: #6b7280;
+    --icon-hover-color: var(--primary);
+    --input-bg: #fff;
+    --input-border: var(--border);
+    --warning: #f59e42;
+    --success: #22c55e;
+    --danger: #ef4444;
+    --command-center-bg: #ffffff;
+}
+
+html, body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+}
+
+body {
+    font-family: 'Inter', system-ui, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+}
+
+#root {
+    height: 100%;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* Main app layout - REMOVED app-layout grid since we're using fixed positioning */
+
+/* Sidebar styles */
+.sidebar-placeholder {
+    background-color: var(--sidebar-bg);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: var(--text-secondary);
+    font-weight: 500;
+    gap: 0.5rem;
+    padding: 1rem 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    transition: width 0.3s ease;
+    width: var(--sidebar-width-collapsed);
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100vh;
+    z-index: 100;
+}
+
+.sidebar-placeholder.expanded {
+    width: var(--sidebar-width-expanded);
+    padding: 1rem;
+}
+
+.sidebar-placeholder.expanded + * {
+    margin-left: var(--sidebar-width-expanded);
+}
+
+.sidebar-placeholder.collapsed + * {
+    margin-left: var(--sidebar-width-collapsed);
+}
+
+.sidebar-logo-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 50px;
+    height: 50px;
+    margin-bottom: 1rem;
+}
+
+.sidebar-logo-placeholder:hover {
+    background-color: var(--primary-light);
+    border-radius: var(--radius);
+}
+
+.sidebar-logo-img {
+    width: 35px;
+    height: 35px;
+    object-fit: contain;
+}
+
+.sidebar-nav-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    width: 100%;
+}
+
+.sidebar-nav-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 50px;
+    height: 44px;
+    padding: 0;
+    margin: 0;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--icon-color);
+    background: none;
+    border: none;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    position: relative;
+    overflow: visible;
+}
+
+.sidebar-placeholder.expanded .sidebar-nav-item {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 0 1rem;
+    gap: 12px;
+}
+
+.sidebar-nav-item:hover {
+    background-color: var(--primary-light);
+    color: var(--primary);
+}
+
+.sidebar-nav-item img {
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.sidebar-nav-label {
+    display: none;
+    font-size: 14px;
+    color: inherit;
+}
+
+.sidebar-placeholder.expanded .sidebar-nav-label {
+    display: block;
+}
+
+.sidebar-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+    color: var(--icon-color);
+    width: 48px;
+    height: 48px;
+    background: none;
+    border: none;
+}
+
+.sidebar-icon:hover {
+    background-color: var(--primary-light);
+    color: var(--primary);
+}
+
+.sidebar-icon img {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+}
+
+.sidebar-bottom-icons {
+    margin-top: auto;
+}
+
+/* Content area - uses full remaining space */
+.content-area {
+    overflow: hidden;
+    position: relative;
+    margin-left: var(--sidebar-width-collapsed);
+    transition: margin-left 0.3s ease;
+    height: 100vh;
+}
+
+.sidebar-placeholder.expanded ~ .content-area {
+    margin-left: var(--sidebar-width-expanded);
+}
+
+/* Ensure Radix Theme doesn't constrain width */
+.radix-theme-wrapper {
+    height: 100%;
+    display: contents;
+}
+
+/* Page container - each page should fill the grid cell */
+.page-container {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    height: 100vh;
+    overflow: auto; /* Changed from hidden to auto */
+    position: relative; /* Add this to ensure proper stacking context */
+}
+
+/* Standard page header */
+.page-header {
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid var(--gray-4);
+    background-color: white;
+}
+
+/* Standard page content */
+.page-content {
+    overflow-y: auto;
+    background-color: var(--bg);
+    padding: 2rem;
+}
+
+/* Remove center alignment - content should be left-aligned */
+.page-content > div {
+    max-width: none;
+    margin: 0;
+}
+
+/* Chat page specific layout */
+.chat-page-container {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.chat-messages-area {
+    overflow-y: auto;
+    padding: 2rem;
+    background-color: var(--bg);
+}
+
+.chat-messages-area > div {
+    max-width: none;
+    margin: 0;
+}
+
+.chat-input-area {
+    padding: 1.5rem 2rem;
+    border-top: 1px solid var(--gray-4);
+    background-color: white;
+}
+
+/* Knowledge base specific */
+.knowledge-base-container {
+    padding: 0;
+    max-width: none;
+    margin: 0;
+}
+
+.management-section, .library-section {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    padding: 1.5rem 2rem;
+    margin-bottom: 2rem;
+}
+
+/* Remove all the old problematic rules */
+.property-selector-wrapper {
+    position: relative;
+}
+
+.property-selector-display {
+    padding: 0.5rem 1rem;
+    background: var(--gray-light);
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    transition: background-color 0.2s;
+    border: 1px solid var(--border);
+}
+
+.property-selector-display:hover {
+    background-color: var(--primary-light);
+}
+
+/* Markdown styles */
+.markdown-preview p {
+  margin-bottom: 1rem;
+}
+
+.markdown-preview ul, .markdown-preview ol {
+  margin-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.markdown-preview li {
+  margin-bottom: 0.25rem;
+}
+
+.markdown-preview h1, .markdown-preview h2, .markdown-preview h3 {
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+}
+
+/* Utility classes */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+} 

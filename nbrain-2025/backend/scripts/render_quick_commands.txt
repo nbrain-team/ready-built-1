@@ -1,0 +1,26 @@
+# Quick Commands for Render Shell
+# Copy and paste these directly into Render's shell
+
+# 1. Check for ADTV references in chat sessions
+psql $DATABASE_URL -c "SELECT COUNT(*) as adtv_sessions FROM chat_sessions WHERE messages::text ILIKE '%adtv%' OR messages::text ILIKE '%american dream%' OR title ILIKE '%adtv%' OR title ILIKE '%american dream%';"
+
+# 2. Show sessions with ADTV references (first 5)
+psql $DATABASE_URL -c "SELECT id, title, created_at FROM chat_sessions WHERE messages::text ILIKE '%adtv%' OR messages::text ILIKE '%american dream%' OR title ILIKE '%adtv%' OR title ILIKE '%american dream%' LIMIT 5;"
+
+# 3. Count total chat sessions
+psql $DATABASE_URL -c "SELECT COUNT(*) as total_sessions FROM chat_sessions;"
+
+# 4. Delete ALL chat sessions (CAREFUL!)
+psql $DATABASE_URL -c "DELETE FROM chat_sessions;"
+
+# 5. Delete only ADTV-related sessions
+psql $DATABASE_URL -c "DELETE FROM chat_sessions WHERE messages::text ILIKE '%adtv%' OR messages::text ILIKE '%american dream%' OR title ILIKE '%adtv%' OR title ILIKE '%american dream%';"
+
+# 6. Show recent session titles (last 10)
+psql $DATABASE_URL -c "SELECT id, title, created_at FROM chat_sessions ORDER BY created_at DESC LIMIT 10;"
+
+# 7. Check for ADTV in user emails
+psql $DATABASE_URL -c "SELECT id, email FROM users WHERE email ILIKE '%adtv%' OR email ILIKE '%american%dream%';"
+
+# 8. Search for specific text in all sessions
+psql $DATABASE_URL -c "SELECT id, title FROM chat_sessions WHERE messages::text ILIKE '%blaze.ai%' OR messages::text ILIKE '%coaching call%';" 
