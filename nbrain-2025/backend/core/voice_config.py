@@ -26,3 +26,12 @@ DEEPGRAM_LANGUAGE = "en-US"
 
 # ElevenLabs Settings
 ELEVENLABS_MODEL = "eleven_monolingual_v1" 
+# Keep the old name for backward compatibility
+ELEVENLABS_VOICE_SETTINGS = DEFAULT_VOICE_SETTINGS
+
+# Audio Settings
+AUDIO_SAMPLE_RATE = 16000
+AUDIO_CHANNELS = 1
+
+# WebSocket Settings
+WS_CHUNK_SIZE = 4096
