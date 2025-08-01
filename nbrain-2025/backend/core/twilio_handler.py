@@ -164,7 +164,6 @@ class TwilioWebSocketWrapper:
 @router.post("/outbound")
 async def make_outbound_call(phone_number: str, initial_message: str = None):
     """Make an outbound call to a phone number."""
-    try:
     if not twilio_client:
         logger.error("Twilio client not initialized - cannot make outbound call")
         return {"error": "Twilio features are disabled due to missing credentials."}
