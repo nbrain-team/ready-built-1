@@ -195,7 +195,6 @@ async def make_outbound_call(phone_number: str, initial_message: str = None):
 @router.get("/call-status/{call_sid}")
 async def get_call_status(call_sid: str):
     """Get the status of a call."""
-    try:
     if not twilio_client:
         logger.error("Twilio client not initialized - cannot fetch call status")
         return {"error": "Twilio features are disabled due to missing credentials."}
