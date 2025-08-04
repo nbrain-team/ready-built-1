@@ -1,86 +1,100 @@
 #!/bin/bash
 
-# Script to upload salon data to deployed application
+# Salon Data Upload Script for nBrain Platform
+# This script uploads Blazer salon data files to populate the database
+
+echo "=== Salon Data Upload Script ==="
+echo
 
 # Configuration
-API_URL="${API_URL:-https://your-backend.onrender.com}"
-TOKEN="${AUTH_TOKEN:-}"
+API_URL="${API_URL:-https://nbrain-backend.onrender.com}"
+API_TOKEN="${API_TOKEN:-}"
 
-# Colors
+# Colors for output
 GREEN='\033[0;32m'
 RED='\033[0;31m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+NC='\033[0m' # No Color
 
-echo "📊 Salon Data Upload Script"
-echo "=========================="
-
-# Check if API URL is set
-if [ "$API_URL" == "https://your-backend.onrender.com" ]; then
-    echo -e "${YELLOW}Please set your API URL:${NC}"
-    echo "export API_URL=https://your-actual-backend.onrender.com"
-    exit 1
-fi
-
-# Check if token is provided
-if [ -z "$TOKEN" ]; then
-    echo -e "${YELLOW}Please set your auth token:${NC}"
-    echo "export AUTH_TOKEN=your_jwt_token_here"
-    echo ""
-    echo "To get a token:"
-    echo "1. Login via the web app"
-    echo "2. Check browser DevTools > Application > Local Storage > token"
-    exit 1
-fi
+# Function to check if file exists
+check_file() {
+    if [ ! -f "$1" ]; then
+        echo -e "${RED}✗ File not found: $1${NC}"
+        return 1
+    fi
+    return 0
+}
 
 # Function to upload a file
 upload_file() {
-    local endpoint=$1
-    local file=$2
+    local file_path=$1
+    local endpoint=$2
     local description=$3
     
-    echo -e "${YELLOW}Uploading ${description}...${NC}"
+    echo "Uploading $description..."
     
-    if [ ! -f "$file" ]; then
-        echo -e "${RED}❌ File not found: $file${NC}"
+    if ! check_file "$file_path"; then
         return 1
     fi
     
     response=$(curl -s -w "\n%{http_code}" -X POST \
-        "${API_URL}/api/salon/upload/${endpoint}" \
-        -H "Authorization: Bearer ${TOKEN}" \
-        -F "file=@${file}")
+        -H "Authorization: Bearer $API_TOKEN" \
+        -F "file=@$file_path" \
+        "$API_URL/api/salon$endpoint")
     
     http_code=$(echo "$response" | tail -n1)
     body=$(echo "$response" | sed '$d')
     
-    if [ "$http_code" -eq 200 ]; then
-        echo -e "${GREEN}✅ Successfully uploaded ${description}${NC}"
-        echo "Response: $body"
+    if [ "$http_code" = "200" ]; then
+        echo -e "${GREEN}✓ Successfully uploaded $description${NC}"
+        echo "  Response: $body"
+        return 0
     else
-        echo -e "${RED}❌ Failed to upload ${description}${NC}"
-        echo "HTTP Code: $http_code"
-        echo "Response: $body"
+        echo -e "${RED}✗ Failed to upload $description${NC}"
+        echo "  HTTP Status: $http_code"
+        echo "  Response: $body"
         return 1
     fi
-    
-    echo ""
 }
 
+# Check if we have an API token
+if [ -z "$API_TOKEN" ]; then
+    echo "No API_TOKEN found. Please set it first:"
+    echo "export API_TOKEN='your-token-here'"
+    echo
+    echo "To get a token, you can use the login endpoint:"
+    echo "curl -X POST $API_URL/auth/login -d 'username=YOUR_EMAIL&password=YOUR_PASSWORD'"
+    exit 1
+fi
+
+echo "API URL: $API_URL"
+echo "Starting upload process..."
+echo "----------------------------------------"
+
 # Upload staff data
-echo "Step 1: Uploading Staff Data"
-echo "----------------------------"
-upload_file "staff" "blazer/Emp List Active as of 1.1.24-7.31.25.csv" "Employee List"
+echo
+echo "1. Staff Data Upload:"
+upload_file "blazer/Emp List Active as of 1.1.24-7.31.25.csv" "/upload/staff" "Employee List"
 
 # Upload performance data
-echo "Step 2: Uploading Performance Data"
-echo "---------------------------------"
-upload_file "performance" "blazer/Staff Performance_Utilization - All Salons 2025 072725.csv" "2025 Performance Data"
-upload_file "performance" "blazer/Staff Performance_Utilization - All Salons 2024.csv" "2024 Performance Data"
+echo
+echo "2. Performance Data 2024:"
+upload_file "blazer/Staff Performance_Utilization - All Salons 2024.csv" "/upload/performance" "2024 Performance Data"
 
-echo -e "${GREEN}🎉 Data upload complete!${NC}"
-echo ""
+echo
+echo "3. Performance Data 2025:"
+upload_file "blazer/Staff Performance_Utilization - All Salons 2025 072725.csv" "/upload/performance" "2025 Performance Data"
+
+echo
+echo "========================================"
+echo "Upload process completed!"
+echo
 echo "Next steps:"
-echo "1. Visit ${API_URL/api/}/salon to see the dashboard"
-echo "2. Use the AI chat to ask questions about your data"
-echo "3. Check capacity utilization and staff predictions" 
+echo "1. Visit the dashboard: https://nbrain-frontend.onrender.com"
+echo "2. Navigate to the Salon Analytics section"
+echo "3. Use the AI Assistant to analyze your data"
+echo
+echo "Available analytics:"
+echo "- Capacity utilization analysis"
+echo "- Staff performance metrics"
+echo "- Prebooking impact analysis"
+echo "- Optimal scheduling recommendations" 
