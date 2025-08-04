@@ -19,14 +19,23 @@ salon_handler = SalonAnalyticsHandler()
 
 def sanitize_float_value(value: Any) -> Any:
     """Ensure float values are JSON-compliant (no NaN, infinity)"""
-    if isinstance(value, float):
+    if value is None:
+        return None
+    elif isinstance(value, float):
         if math.isnan(value) or math.isinf(value):
             return 0.0
+        return value
+    elif isinstance(value, int):
+        # Ensure integers don't overflow
+        if value > 2**53 or value < -(2**53):
+            return float(value)
         return value
     elif isinstance(value, dict):
         return {k: sanitize_float_value(v) for k, v in value.items()}
     elif isinstance(value, list):
         return [sanitize_float_value(item) for item in value]
+    elif isinstance(value, tuple):
+        return tuple(sanitize_float_value(item) for item in value)
     return value
 
 @router.get("/health")
@@ -272,7 +281,7 @@ async def get_dashboard_overview(
     if math.isnan(avg_utilization) or math.isinf(avg_utilization):
         avg_utilization = 0.0
     
-    return {
+    return sanitize_float_value({
         "total_locations": total_locations,
         "total_staff": total_staff,
         "active_staff": active_staff,
@@ -280,7 +289,7 @@ async def get_dashboard_overview(
         "total_revenue": float(total_revenue),
         "new_clients": int(new_clients),
         "period": latest_perf.isoformat() if latest_perf else None
-    }
+    })
 
 @router.get("/dashboard/performance-trends")
 async def get_performance_trends(
@@ -321,7 +330,7 @@ async def get_performance_trends(
             "new_clients": int(trend.new_clients or 0)
         })
     
-    return result
+    return sanitize_float_value(result)
 
 @router.get("/dashboard/top-performers")
 async def get_top_performers(
@@ -382,7 +391,59 @@ async def get_top_performers(
             "prebooking": prebooking
         })
     
-    return result
+    return sanitize_float_value(result)
+
+@router.get("/debug/check-data")
+async def debug_check_data(
+    db: Session = Depends(get_db)
+):
+    """Debug endpoint to check for problematic data"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Check for NaN or infinity values in the database
+    problematic_records = []
+    
+    # Check StaffPerformance records
+    performances = db.query(StaffPerformance).limit(10).all()
+    for p in performances:
+        issues = []
+        if p.utilization_percent is not None:
+            if isinstance(p.utilization_percent, float):
+                if math.isnan(p.utilization_percent):
+                    issues.append("utilization_percent is NaN")
+                elif math.isinf(p.utilization_percent):
+                    issues.append("utilization_percent is infinity")
+        
+        if p.prebooked_percent is not None:
+            if isinstance(p.prebooked_percent, float):
+                if math.isnan(p.prebooked_percent):
+                    issues.append("prebooked_percent is NaN")
+                elif math.isinf(p.prebooked_percent):
+                    issues.append("prebooked_percent is infinity")
+        
+        if p.net_sales is not None:
+            if isinstance(p.net_sales, float):
+                if math.isnan(p.net_sales):
+                    issues.append("net_sales is NaN")
+                elif math.isinf(p.net_sales):
+                    issues.append("net_sales is infinity")
+        
+        if issues:
+            problematic_records.append({
+                "id": p.id,
+                "staff_id": p.staff_id,
+                "period_date": p.period_date.isoformat() if p.period_date else None,
+                "issues": issues
+            })
+    
+    return {
+        "total_performance_records": db.query(StaffPerformance).count(),
+        "problematic_records": problematic_records,
+        "sample_utilization_values": [
+            p.utilization_percent for p in performances[:5]
+        ]
+    }
 
 def setup_salon_endpoints(app):
     """Setup salon endpoints in the main app"""
