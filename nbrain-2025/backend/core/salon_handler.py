@@ -10,17 +10,28 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 import joblib
 import os
+import google.generativeai as genai
+import logging
 
 from .database import SessionLocal
 from .salon_models import (
     SalonLocation, SalonStaff, StaffPerformance, SalonClient,
     SalonAppointment, StaffPrediction, SalonAnalytics
 )
-from .gemini_handler import GeminiHandler
+
+logger = logging.getLogger(__name__)
 
 class SalonAnalyticsHandler:
     def __init__(self):
-        self.gemini_handler = GeminiHandler()
+        # Configure Gemini
+        self.gemini_api_key = os.getenv('GEMINI_API_KEY')
+        if self.gemini_api_key:
+            genai.configure(api_key=self.gemini_api_key)
+            self.gemini_model = genai.GenerativeModel('gemini-1.5-pro')
+        else:
+            logger.warning("GEMINI_API_KEY not found. AI features will be limited.")
+            self.gemini_model = None
+            
         self.model_path = "models/staff_success_predictor.pkl"
         self.scaler_path = "models/staff_scaler.pkl"
         
@@ -551,8 +562,21 @@ class SalonAnalyticsHandler:
             Provide actionable insights and specific recommendations.
             """
             
-            response = await self.gemini_handler.generate_response(prompt, user_id)
-            return {
-                "response": response,
-                "data": None
-            } 
+            if self.gemini_model:
+                try:
+                    response = self.gemini_model.generate_content(prompt)
+                    return {
+                        "response": response.text,
+                        "data": None
+                    }
+                except Exception as e:
+                    logger.error(f"Error generating Gemini response: {e}")
+                    return {
+                        "response": "Sorry, I encountered an error generating a response.",
+                        "data": None
+                    }
+            else:
+                return {
+                    "response": "Sorry, AI features are currently unavailable.",
+                    "data": None
+                } 

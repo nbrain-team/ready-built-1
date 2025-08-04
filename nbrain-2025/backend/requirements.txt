@@ -3,6 +3,7 @@ uvicorn==0.30.1
 python-dotenv
 pinecone-client
 langchain-google-genai
+google-generativeai
 langchain-pinecone==0.1.1
 langchain
 python-multipart
