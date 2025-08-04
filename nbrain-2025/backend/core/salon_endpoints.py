@@ -240,9 +240,9 @@ async def get_dashboard_overview(
     active_staff = db.query(SalonStaff).filter_by(position_status='A').count()
     
     if current_data:
-        avg_utilization = sum(p.utilization_percent for p in current_data) / len(current_data)
-        total_revenue = sum(p.net_sales for p in current_data)
-        new_clients = sum(p.new_client_count for p in current_data)
+        avg_utilization = sum(p.utilization_percent or 0 for p in current_data) / len(current_data) if current_data else 0
+        total_revenue = sum(p.net_sales or 0 for p in current_data)
+        new_clients = sum(p.new_client_count or 0 for p in current_data)
     else:
         avg_utilization = 0
         total_revenue = 0
