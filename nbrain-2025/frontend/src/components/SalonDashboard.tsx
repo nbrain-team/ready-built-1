@@ -385,7 +385,7 @@ const SalonDashboard: React.FC = () => {
 
       {/* AI Chat Sidebar */}
       {showChat && (
-        <div className="fixed right-0 top-0 h-screen w-96 bg-background border-l shadow-lg z-50 flex flex-col">
+        <div className="fixed right-0 top-0 h-screen w-96 bg-white border-l shadow-lg z-50 flex flex-col">
           <div className="flex justify-between items-center p-4 border-b flex-shrink-0">
             <h2 className="text-lg font-semibold">AI Analytics Assistant</h2>
             <Button variant="ghost" size="sm" onClick={() => setShowChat(false)}>
