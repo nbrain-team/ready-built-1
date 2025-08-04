@@ -62,7 +62,7 @@ if [ -z "$API_TOKEN" ]; then
     echo "export API_TOKEN='your-token-here'"
     echo
     echo "To get a token, you can use the login endpoint:"
-    echo "curl -X POST $API_URL/auth/login -d 'username=YOUR_EMAIL&password=YOUR_PASSWORD'"
+    echo "curl -X POST $API_URL/login -d 'username=YOUR_EMAIL&password=YOUR_PASSWORD'"
     exit 1
 fi
 

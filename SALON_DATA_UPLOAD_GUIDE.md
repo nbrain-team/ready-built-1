@@ -28,7 +28,7 @@ This guide explains how to upload your Blazer salon data to the nBrain platform 
 1. **Get your API token**:
    ```bash
    # Login to get token
-   curl -X POST https://nbrain-backend.onrender.com/auth/login \
+   curl -X POST https://nbrain-backend.onrender.com/login \
      -H "Content-Type: application/x-www-form-urlencoded" \
      -d "username=YOUR_EMAIL&password=YOUR_PASSWORD"
    ```

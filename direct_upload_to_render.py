@@ -13,7 +13,7 @@ from datetime import datetime
 import getpass
 
 # Configuration
-API_BASE_URL = 'https://nbrain-backend.onrender.com'
+API_BASE_URL = 'https://ready-built-1.onrender.com'
 
 # File mappings - ALL data files
 FILES_TO_UPLOAD = {
@@ -80,7 +80,7 @@ def login(username, password):
     
     try:
         response = requests.post(
-            f"{API_BASE_URL}/auth/login",
+            f"{API_BASE_URL}/login",
             data={
                 "username": username,
                 "password": password

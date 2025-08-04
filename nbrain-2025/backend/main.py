@@ -271,9 +271,18 @@ logger.info(f"Setting up CORS middleware...")
 logger.info(f"Frontend should be using VITE_API_BASE_URL from environment")
 
 # More explicit CORS configuration
+# Get allowed origins from environment or use defaults
+allowed_origins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://ready-built-1-1.onrender.com",
+    "https://ready-built-1.onrender.com",
+    "*"  # Keep wildcard as fallback
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
