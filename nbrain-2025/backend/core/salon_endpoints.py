@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Query
 from typing import Dict, Any, List, Optional
 from datetime import datetime, date
 import json
+import math
 
 from .auth import get_current_active_user
 from .database import SessionLocal, get_db, User
@@ -15,6 +16,18 @@ from sqlalchemy import func, desc
 
 router = APIRouter(prefix="/api/salon", tags=["salon"])
 salon_handler = SalonAnalyticsHandler()
+
+def sanitize_float_value(value: Any) -> Any:
+    """Ensure float values are JSON-compliant (no NaN, infinity)"""
+    if isinstance(value, float):
+        if math.isnan(value) or math.isinf(value):
+            return 0.0
+        return value
+    elif isinstance(value, dict):
+        return {k: sanitize_float_value(v) for k, v in value.items()}
+    elif isinstance(value, list):
+        return [sanitize_float_value(item) for item in value]
+    return value
 
 @router.get("/health")
 async def health_check():
@@ -117,7 +130,8 @@ async def process_analytics_query(
         raise HTTPException(status_code=400, detail="Query is required")
     
     result = await salon_handler.process_analytics_query(user_query, current_user.id)
-    return result
+    # Sanitize the entire result to ensure all float values are JSON-compliant
+    return sanitize_float_value(result)
 
 @router.get("/analytics/capacity")
 async def get_capacity_utilization(
@@ -130,7 +144,8 @@ async def get_capacity_utilization(
     if not result['success']:
         raise HTTPException(status_code=400, detail=result['error'])
     
-    return result
+    # Sanitize the result before returning
+    return sanitize_float_value(result)
 
 @router.get("/analytics/prebooking")
 async def get_prebooking_impact(
@@ -142,7 +157,8 @@ async def get_prebooking_impact(
     if not result['success']:
         raise HTTPException(status_code=400, detail=result['error'])
     
-    return result
+    # Sanitize the result before returning
+    return sanitize_float_value(result)
 
 @router.get("/analytics/scheduling/{location_id}")
 async def get_optimal_scheduling(

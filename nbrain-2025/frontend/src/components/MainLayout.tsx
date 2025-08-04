@@ -22,8 +22,8 @@ export const MainLayout = ({ children, onNewChat }: MainLayoutProps) => {
         return null; // Prevent flash of unstyled content
     }
     
-    // Hide SuperAgent on chat page (root path)
-    const showSuperAgent = location.pathname !== '/';
+    // Hide SuperAgent on chat page (root path) and salon page
+    const showSuperAgent = location.pathname !== '/' && location.pathname !== '/salon';
     
     return (
         <>
