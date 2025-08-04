@@ -212,8 +212,8 @@ async def get_staff(
 
 @router.get("/dashboard/overview")
 async def get_dashboard_overview(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_active_user)
+    db: Session = Depends(get_db)
+    # Temporarily removed for demo: current_user: dict = Depends(get_current_active_user)
 ):
     """Get overview data for dashboard"""
     # Get latest performance date
@@ -260,10 +260,10 @@ async def get_dashboard_overview(
 
 @router.get("/dashboard/performance-trends")
 async def get_performance_trends(
-    location_id: Optional[int] = None,
-    months: int = 6,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_active_user)
+    location_id: Optional[int] = Query(None),
+    months: int = Query(6, ge=1, le=24),
+    db: Session = Depends(get_db)
+    # Temporarily removed for demo: current_user: dict = Depends(get_current_active_user)
 ):
     """Get performance trends over time"""
     query = db.query(
@@ -291,10 +291,10 @@ async def get_performance_trends(
 
 @router.get("/dashboard/top-performers")
 async def get_top_performers(
-    metric: str = "sales",
-    limit: int = 10,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_active_user)
+    metric: str = Query("sales", regex="^(sales|utilization|appointments|prebooking)$"),
+    limit: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db)
+    # Temporarily removed for demo: current_user: dict = Depends(get_current_active_user)
 ):
     """Get top performing staff by various metrics"""
     # Get latest performance date
