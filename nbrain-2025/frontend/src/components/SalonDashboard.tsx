@@ -14,7 +14,7 @@ import {
   TrendingUp, TrendingDown, Users, DollarSign, Clock, 
   Calendar, Upload, MessageSquare, BarChart3, Activity
 } from 'lucide-react';
-import { salonApi } from '@/services/salonApi';
+import { salonApiInstance as salonApi } from '@/services/salonApi';
 import SalonChat from './SalonChat';
 
 interface DashboardMetrics {

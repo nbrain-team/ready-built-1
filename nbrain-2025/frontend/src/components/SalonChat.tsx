@@ -7,7 +7,7 @@ import {
   Send, Bot, User, TrendingUp, Users, Clock, 
   DollarSign, AlertCircle, BarChart3 
 } from 'lucide-react';
-import { salonApi } from '@/services/salonApi';
+import { salonApiInstance as salonApi } from '@/services/salonApi';
 
 interface Message {
   id: string;

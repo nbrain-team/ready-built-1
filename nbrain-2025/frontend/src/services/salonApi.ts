@@ -1,26 +1,28 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://ready-built-1.onrender.com';
+
+const salonApi = axios.create({
+  baseURL: `${API_BASE_URL}/api/salon`,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Add auth token to requests
+salonApi.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
 class SalonApi {
   private axiosInstance;
 
   constructor() {
-    this.axiosInstance = axios.create({
-      baseURL: `${API_BASE_URL}/api/salon`,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    // Add auth token to requests
-    this.axiosInstance.interceptors.request.use((config) => {
-      const token = localStorage.getItem('token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-      return config;
-    });
+    this.axiosInstance = salonApi;
   }
 
   // Dashboard endpoints
@@ -107,4 +109,4 @@ class SalonApi {
   }
 }
 
-export const salonApi = new SalonApi(); 
+export const salonApiInstance = new SalonApi(); 
