@@ -4,7 +4,7 @@ from datetime import datetime, date
 import json
 
 from .auth import get_current_active_user
-from .database import SessionLocal, get_db
+from .database import SessionLocal, get_db, User
 from .salon_handler import SalonAnalyticsHandler
 from .salon_models import (
     SalonLocation, SalonStaff, StaffPerformance, 
@@ -24,7 +24,7 @@ async def health_check():
 @router.post("/upload/staff")
 async def upload_staff_data(
     file: UploadFile = File(...),
-    current_user: dict = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Upload employee list CSV file"""
     if not file.filename.endswith('.csv'):
@@ -41,7 +41,7 @@ async def upload_staff_data(
 @router.post("/upload/performance")
 async def upload_performance_data(
     file: UploadFile = File(...),
-    current_user: dict = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Upload staff performance CSV file"""
     if not file.filename.endswith('.csv'):
@@ -58,7 +58,7 @@ async def upload_performance_data(
 @router.post("/upload/transactions")
 async def upload_transaction_data(
     file: UploadFile = File(...),
-    current_user: dict = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Upload detailed line item transaction CSV file"""
     if not file.filename.endswith('.csv'):
@@ -75,7 +75,7 @@ async def upload_transaction_data(
 @router.post("/upload/timeclock")
 async def upload_time_clock_data(
     file: UploadFile = File(...),
-    current_user: dict = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Upload time clock CSV file"""
     if not file.filename.endswith('.csv'):
@@ -92,7 +92,7 @@ async def upload_time_clock_data(
 @router.post("/upload/schedules")
 async def upload_schedule_data(
     file: UploadFile = File(...),
-    current_user: dict = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Upload schedule records CSV file"""
     if not file.filename.endswith('.csv'):
@@ -109,20 +109,20 @@ async def upload_schedule_data(
 @router.post("/analytics/query")
 async def process_analytics_query(
     query: Dict[str, str],
-    current_user: dict = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Process natural language analytics queries"""
     user_query = query.get('query', '')
     if not user_query:
         raise HTTPException(status_code=400, detail="Query is required")
     
-    result = await salon_handler.process_analytics_query(user_query, current_user['id'])
+    result = await salon_handler.process_analytics_query(user_query, current_user.id)
     return result
 
 @router.get("/analytics/capacity")
 async def get_capacity_utilization(
     location_id: Optional[int] = None,
-    current_user: dict = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Get capacity utilization analysis"""
     result = salon_handler.analyze_capacity_utilization(location_id)
@@ -134,7 +134,7 @@ async def get_capacity_utilization(
 
 @router.get("/analytics/prebooking")
 async def get_prebooking_impact(
-    current_user: dict = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Get prebooking impact analysis"""
     result = salon_handler.analyze_prebooking_impact()
@@ -147,7 +147,7 @@ async def get_prebooking_impact(
 @router.get("/analytics/scheduling/{location_id}")
 async def get_optimal_scheduling(
     location_id: int,
-    current_user: dict = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Get optimal scheduling analysis for a location"""
     result = salon_handler.get_optimal_scheduling(location_id)
@@ -161,7 +161,7 @@ async def get_optimal_scheduling(
 async def predict_staff_success(
     staff_id: int,
     weeks: int = 6,
-    current_user: dict = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Predict staff success based on early performance"""
     result = salon_handler.predict_staff_success(staff_id, weeks)
@@ -174,7 +174,7 @@ async def predict_staff_success(
 @router.get("/locations")
 async def get_locations(
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Get all salon locations"""
     locations = db.query(SalonLocation).filter_by(is_active=True).all()
@@ -189,7 +189,7 @@ async def get_staff(
     location_id: Optional[int] = None,
     status: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Get staff members with optional filters"""
     query = db.query(SalonStaff)
@@ -323,7 +323,13 @@ async def get_top_performers(
     if not latest_perf:
         return []
     
-    query = db.query(StaffPerformance).filter(
+    # Join with staff and location tables to ensure relationships are loaded
+    from sqlalchemy.orm import joinedload
+    
+    query = db.query(StaffPerformance).options(
+        joinedload(StaffPerformance.staff),
+        joinedload(StaffPerformance.location)
+    ).filter(
         StaffPerformance.period_date == latest_perf
     )
     
