@@ -18,9 +18,9 @@ psycopg2-binary
 passlib[bcrypt]
 python-jose[cryptography]
 email-validator
-pandas
+pandas==2.0.3
 websockets
-numpy
+numpy==1.24.3
 httpx
 pydantic
 deepgram-sdk
@@ -39,3 +39,6 @@ dateparser==1.2.0
 # RAG-specific dependencies
 flask-sqlalchemy==3.1.1  # For compatibility with Generic RAG models
 flask-migrate==4.0.5  # For database migrations compatibility 
+pandas==2.0.3
+numpy==1.24.3
+scikit-learn==1.3.0 

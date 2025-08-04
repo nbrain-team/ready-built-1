@@ -23,6 +23,7 @@ import NewClient from './pages/NewClient';
 import { ProfilePage } from './pages/ProfilePage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import SocialMediaCalendar from './pages/SocialMediaCalendar';
+import SalonDashboard from './components/SalonDashboard';
 import './styles/animations.css';
 
 // Define the structure for a message
@@ -95,6 +96,7 @@ function AppRoutes() {
                   <Route path="/client/:clientId" element={<ClientDetail />} />
                   <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/social-calendar" element={<SocialMediaCalendar />} />
+                  <Route path="/salon" element={<SalonDashboard />} />
                   <Route path="*" element={<Navigate to="/" />} />
                 </Routes>
               </MainLayout>

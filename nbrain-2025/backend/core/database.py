@@ -131,6 +131,12 @@ except ImportError:
 # Import RAG models
 from .rag_models import DataSource, DataEntry, RAGChatHistory, RAGConfiguration
 
+# Import Salon models
+from .salon_models import (
+    SalonLocation, SalonStaff, StaffPerformance, 
+    SalonClient, SalonAppointment, StaffPrediction, SalonAnalytics
+)
+
 
 class CRMOpportunity(Base):
     __tablename__ = 'crm_opportunities'

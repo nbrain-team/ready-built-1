@@ -13,8 +13,8 @@ import os
 from datetime import datetime
 from sqlalchemy import func
 
-from ..database import get_db, User
-from ..auth import get_current_active_user
+from .database import get_db, User
+from .auth import get_current_active_user
 from .rag_handler import RAGHandler
 from .rag_models import DataSource, DataEntry, RAGChatHistory, RAGConfiguration
 
@@ -299,7 +299,7 @@ def setup_rag_endpoints(app):
 def process_data_upload(file_path: str, source_name: str, config: Dict[str, Any], user_id: int, db: Session):
     """Background task to process uploaded data"""
     try:
-        from ..database import SessionLocal
+        from .database import SessionLocal
         from .rag_handler import RAGHandler
         
         # Create new session for background task

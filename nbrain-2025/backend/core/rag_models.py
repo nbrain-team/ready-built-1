@@ -49,7 +49,7 @@ class RAGChatHistory(Base):
     __tablename__ = 'rag_chat_history'
     
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    user_id = Column(String, ForeignKey('users.id'), nullable=False)  # Changed from Integer to String
     session_id = Column(String(100), nullable=False)
     query = Column(Text, nullable=False)
     response = Column(Text)
@@ -65,7 +65,7 @@ class RAGConfiguration(Base):
     __tablename__ = 'rag_configurations'
     
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=True)  # Null for global config
+    user_id = Column(String, ForeignKey('users.id'), nullable=True)  # Changed from Integer to String
     config_type = Column(String(50), nullable=False)  # 'prompts', 'ui', 'data_schema', etc.
     config_data = Column(JSON, nullable=False)
     is_active = Column(Boolean, default=True)

@@ -24,43 +24,67 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/twilio", tags=["twilio"])
 
-# Initialize Twilio client
-twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-request_validator = RequestValidator(TWILIO_AUTH_TOKEN)
+# Initialize Twilio client only if credentials are provided
+twilio_client = None
+request_validator = None
+
+if TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN:
+    try:
+        twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+        request_validator = RequestValidator(TWILIO_AUTH_TOKEN)
+        logger.info("Twilio client initialized successfully")
+    except Exception as e:
+        logger.warning(f"Failed to initialize Twilio client: {e}")
+else:
+    logger.warning("Twilio credentials not provided - Twilio features will be disabled")
 
 # Store active phone sessions
 phone_sessions: Dict[str, VoiceConversationManager] = {}
 
 @router.post("/voice")
 async def handle_incoming_call(request: Request):
-    """Handle incoming phone calls via Twilio."""
-    # Validate request is from Twilio
-    form_data = await request.form()
+    """Handle incoming Twilio voice calls"""
+    if not twilio_client:
+        logger.error("Twilio client not initialized - missing credentials")
+        return Response(
+            content=str(VoiceResponse()),
+            media_type="application/xml"
+        )
     
-    # Get caller information
-    caller = form_data.get("From", "Unknown")
-    call_sid = form_data.get("CallSid")
-    
-    logger.info(f"Incoming call from {caller}, SID: {call_sid}")
-    
-    # Create TwiML response
-    response = VoiceResponse()
-    
-    # Greet the caller
-    response.say(
-        "Welcome to nBrain AI Ideator. I'll connect you with our AI assistant now.",
-        voice="Polly.Joanna"
-    )
-    
-    # Set up media stream
-    connect = Connect()
-    stream = Stream(
-        url=f"wss://{request.headers.get('host')}/twilio/stream/{call_sid}"
-    )
-    connect.append(stream)
-    response.append(connect)
-    
-    return Response(content=str(response), media_type="text/xml")
+    try:
+        # Validate request is from Twilio
+        form_data = await request.form()
+        
+        # Get caller information
+        caller = form_data.get("From", "Unknown")
+        call_sid = form_data.get("CallSid")
+        
+        logger.info(f"Incoming call from {caller}, SID: {call_sid}")
+        
+        # Create TwiML response
+        response = VoiceResponse()
+        
+        # Greet the caller
+        response.say(
+            "Welcome to nBrain AI Ideator. I'll connect you with our AI assistant now.",
+            voice="Polly.Joanna"
+        )
+        
+        # Set up media stream
+        connect = Connect()
+        stream = Stream(
+            url=f"wss://{request.headers.get('host')}/twilio/stream/{call_sid}"
+        )
+        connect.append(stream)
+        response.append(connect)
+        
+        return Response(content=str(response), media_type="text/xml")
+    except Exception as e:
+        logger.error(f"Error handling incoming call: {e}")
+        return Response(
+            content=str(VoiceResponse()),
+            media_type="application/xml"
+        )
 
 @router.websocket("/stream/{call_sid}")
 async def handle_media_stream(websocket: WebSocket, call_sid: str):
@@ -147,41 +171,60 @@ class TwilioWebSocketWrapper:
 @router.post("/outbound")
 async def make_outbound_call(phone_number: str, initial_message: str = None):
     """Make an outbound call to a phone number."""
+    if not twilio_client:
+        logger.error("Twilio client not initialized - cannot make outbound call")
+        return {"error": "Twilio features are disabled due to missing credentials."}
+    
     try:
         # Validate phone number format
         if not phone_number.startswith('+'):
-            phone_number = '+1' + phone_number  # Assume US number
-            
-        # Make the call
+            phone_number = f"+1{phone_number}"  # Assume US number
+        
+        # Create call
         call = twilio_client.calls.create(
-            twiml=f'<Response><Say>Hello, this is nBrain AI calling. {initial_message or "How can I help you today?"}</Say></Response>',
             to=phone_number,
-            from_=TWILIO_PHONE_NUMBER
+            from_=TWILIO_PHONE_NUMBER,
+            url=f"https://{os.getenv('RENDER_EXTERNAL_URL', 'localhost:8000')}/twilio/voice",
+            status_callback=f"https://{os.getenv('RENDER_EXTERNAL_URL', 'localhost:8000')}/twilio/status"
         )
         
-        logger.info(f"Outbound call initiated: {call.sid}")
+        # Store initial message if provided
+        if initial_message:
+            phone_sessions[call.sid] = {
+                "initial_message": initial_message
+            }
         
         return {
+            "success": True,
             "call_sid": call.sid,
-            "status": "initiated",
-            "to": phone_number
+            "status": call.status
         }
         
     except Exception as e:
         logger.error(f"Failed to make outbound call: {e}")
-        return {"error": str(e)}
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
-@router.get("/call-status/{call_sid}")
+@router.get("/status/{call_sid}")
 async def get_call_status(call_sid: str):
     """Get the status of a call."""
+    if not twilio_client:
+        logger.error("Twilio client not initialized - cannot fetch call status")
+        return {"error": "Twilio features are disabled due to missing credentials."}
+    
     try:
         call = twilio_client.calls(call_sid).fetch()
         return {
-            "call_sid": call_sid,
+            "call_sid": call.sid,
             "status": call.status,
             "duration": call.duration,
             "from": call.from_,
             "to": call.to
         }
     except Exception as e:
-        return {"error": str(e)} 
+        logger.error(f"Failed to get call status: {e}")
+        return {
+            "error": str(e)
+        } 

@@ -1022,7 +1022,11 @@ setup_social_media_endpoints(app)
 
 # Setup RAG endpoints
 from core.rag_endpoints import setup_rag_endpoints
+from core.salon_endpoints import setup_salon_endpoints
 setup_rag_endpoints(app)
+
+# Setup Salon Analytics endpoints
+setup_salon_endpoints(app)
 
 # Setup User Management endpoints
 from core.user_routes import router as user_router
