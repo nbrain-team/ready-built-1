@@ -88,7 +88,7 @@ const SalonDashboard: React.FC = () => {
       setUploadProgress(`Success! ${result.message || 'Data uploaded successfully'}`);
       loadDashboardData(); // Refresh dashboard
     } catch (error) {
-      setUploadProgress(`Error: ${error.message}`);
+      setUploadProgress(`Error: ${error instanceof Error ? error.message : 'Upload failed'}`);
     }
   };
 
@@ -129,7 +129,7 @@ const SalonDashboard: React.FC = () => {
                 onChange={(e) => handleFileUpload(e, 'staff')}
                 className="hidden"
               />
-              <Button variant="outline" as="span">
+              <Button variant="outline">
                 <Upload className="mr-2 h-4 w-4" />
                 Upload Staff Data
               </Button>
@@ -141,7 +141,7 @@ const SalonDashboard: React.FC = () => {
                 onChange={(e) => handleFileUpload(e, 'performance')}
                 className="hidden"
               />
-              <Button variant="outline" as="span">
+              <Button variant="outline">
                 <Upload className="mr-2 h-4 w-4" />
                 Upload Performance
               </Button>
@@ -385,14 +385,16 @@ const SalonDashboard: React.FC = () => {
 
       {/* AI Chat Sidebar */}
       {showChat && (
-        <div className="fixed right-0 top-0 h-full w-96 bg-background border-l shadow-lg z-50">
-          <div className="flex justify-between items-center p-4 border-b">
+        <div className="fixed right-0 top-0 h-screen w-96 bg-background border-l shadow-lg z-50 flex flex-col">
+          <div className="flex justify-between items-center p-4 border-b flex-shrink-0">
             <h2 className="text-lg font-semibold">AI Analytics Assistant</h2>
             <Button variant="ghost" size="sm" onClick={() => setShowChat(false)}>
               ×
             </Button>
           </div>
-          <SalonChat />
+          <div className="flex-1 overflow-hidden">
+            <SalonChat />
+          </div>
         </div>
       )}
     </div>
