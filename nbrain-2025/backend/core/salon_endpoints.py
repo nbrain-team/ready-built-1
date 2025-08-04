@@ -240,21 +240,29 @@ async def get_dashboard_overview(
     active_staff = db.query(SalonStaff).filter_by(position_status='A').count()
     
     if current_data:
-        avg_utilization = sum(p.utilization_percent or 0 for p in current_data) / len(current_data) if current_data else 0
+        # Handle division by zero and ensure JSON-compliant values
+        utilization_values = [p.utilization_percent for p in current_data if p.utilization_percent is not None]
+        avg_utilization = sum(utilization_values) / len(utilization_values) if utilization_values else 0.0
+        
         total_revenue = sum(p.net_sales or 0 for p in current_data)
         new_clients = sum(p.new_client_count or 0 for p in current_data)
     else:
-        avg_utilization = 0
-        total_revenue = 0
+        avg_utilization = 0.0
+        total_revenue = 0.0
         new_clients = 0
+    
+    # Ensure all values are JSON-compliant (no infinity or NaN)
+    import math
+    if math.isnan(avg_utilization) or math.isinf(avg_utilization):
+        avg_utilization = 0.0
     
     return {
         "total_locations": total_locations,
         "total_staff": total_staff,
         "active_staff": active_staff,
-        "avg_utilization": avg_utilization,
-        "total_revenue": total_revenue,
-        "new_clients": new_clients,
+        "avg_utilization": float(avg_utilization),  # Ensure it's a proper float
+        "total_revenue": float(total_revenue),
+        "new_clients": int(new_clients),
         "period": latest_perf.isoformat() if latest_perf else None
     }
 
@@ -266,6 +274,8 @@ async def get_performance_trends(
     # Temporarily removed for demo: current_user: dict = Depends(get_current_active_user)
 ):
     """Get performance trends over time"""
+    import math
+    
     query = db.query(
         StaffPerformance.period_date,
         func.sum(StaffPerformance.net_sales).label('total_sales'),
@@ -281,13 +291,21 @@ async def get_performance_trends(
     
     trends = query.all()
     
-    return [{
-        "period": trend.period_date.isoformat(),
-        "total_sales": float(trend.total_sales or 0),
-        "avg_utilization": float(trend.avg_utilization or 0),
-        "total_appointments": int(trend.total_appointments or 0),
-        "new_clients": int(trend.new_clients or 0)
-    } for trend in trends]
+    result = []
+    for trend in trends:
+        avg_util = float(trend.avg_utilization or 0)
+        if math.isnan(avg_util) or math.isinf(avg_util):
+            avg_util = 0.0
+            
+        result.append({
+            "period": trend.period_date.isoformat(),
+            "total_sales": float(trend.total_sales or 0),
+            "avg_utilization": avg_util,
+            "total_appointments": int(trend.total_appointments or 0),
+            "new_clients": int(trend.new_clients or 0)
+        })
+    
+    return result
 
 @router.get("/dashboard/top-performers")
 async def get_top_performers(
@@ -297,6 +315,8 @@ async def get_top_performers(
     # Temporarily removed for demo: current_user: dict = Depends(get_current_active_user)
 ):
     """Get top performing staff by various metrics"""
+    import math
+    
     # Get latest performance date
     latest_perf = db.query(func.max(StaffPerformance.period_date)).scalar()
     
@@ -319,15 +339,28 @@ async def get_top_performers(
     
     performers = query.limit(limit).all()
     
-    return [{
-        "staff_id": p.staff_id,
-        "staff_name": p.staff.full_name,
-        "location": p.location.name,
-        "net_sales": float(p.net_sales),
-        "utilization": float(p.utilization_percent),
-        "appointments": int(p.appointment_count),
-        "prebooking": float(p.prebooked_percent)
-    } for p in performers]
+    result = []
+    for p in performers:
+        # Ensure all float values are JSON-compliant
+        utilization = float(p.utilization_percent or 0)
+        prebooking = float(p.prebooked_percent or 0)
+        
+        if math.isnan(utilization) or math.isinf(utilization):
+            utilization = 0.0
+        if math.isnan(prebooking) or math.isinf(prebooking):
+            prebooking = 0.0
+            
+        result.append({
+            "staff_id": p.staff_id,
+            "staff_name": p.staff.full_name if p.staff else "Unknown",
+            "location": p.location.name if p.location else "Unknown",
+            "net_sales": float(p.net_sales or 0),
+            "utilization": utilization,
+            "appointments": int(p.appointment_count or 0),
+            "prebooking": prebooking
+        })
+    
+    return result
 
 def setup_salon_endpoints(app):
     """Setup salon endpoints in the main app"""
