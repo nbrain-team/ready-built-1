@@ -173,24 +173,93 @@ class StaffPrediction(Base):
     )
 
 class SalonAnalytics(Base):
-    """Aggregated analytics and insights"""
+    """Cached analytics results"""
     __tablename__ = 'salon_analytics'
     
     id = Column(Integer, primary_key=True)
+    analytics_type = Column(String(50), nullable=False)  # capacity, prebooking, scheduling
     location_id = Column(Integer, ForeignKey('salon_locations.id'))
-    metric_type = Column(String(100), nullable=False)  # capacity, growth_potential, scheduling_optimization
-    metric_date = Column(Date, nullable=False)
-    metric_value = Column(Float)
-    metric_data = Column(JSON)  # Detailed data for the metric
-    insights = Column(Text)  # AI-generated insights
+    data = Column(JSON, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime)
+    
+    # Relationships
+    location = relationship("SalonLocation")
+
+class SalonTransaction(Base):
+    """Detailed line items for sales transactions"""
+    __tablename__ = 'salon_transactions'
+    
+    id = Column(Integer, primary_key=True)
+    sale_id = Column(String(100), unique=True)
+    location_id = Column(Integer, ForeignKey('salon_locations.id'))
+    sale_date = Column(Date, nullable=False)
+    client_name = Column(String(200))
+    staff_id = Column(Integer, ForeignKey('salon_staff.id'))
+    service_name = Column(String(200))
+    sale_type = Column(String(50))  # service, product, gratuity
+    net_service_sales = Column(Float, default=0)
+    net_sales = Column(Float, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
     location = relationship("SalonLocation")
+    staff = relationship("SalonStaff")
     
     # Indexes
     __table_args__ = (
-        Index('idx_salon_analytics_type', 'metric_type'),
-        Index('idx_salon_analytics_date', 'metric_date'),
-        Index('idx_salon_analytics_location', 'location_id'),
+        Index('idx_salon_transaction_date', 'sale_date'),
+        Index('idx_salon_transaction_staff', 'staff_id'),
+        Index('idx_salon_transaction_type', 'sale_type'),
+    )
+
+class SalonTimeClockEntry(Base):
+    """Time clock entries for staff"""
+    __tablename__ = 'salon_time_clock'
+    
+    id = Column(Integer, primary_key=True)
+    timecard_id = Column(String(100), unique=True)
+    staff_id = Column(Integer, ForeignKey('salon_staff.id'))
+    location_id = Column(Integer, ForeignKey('salon_locations.id'))
+    clock_date = Column(Date, nullable=False)
+    clock_in = Column(DateTime)
+    clock_out = Column(DateTime)
+    reason = Column(String(100))
+    hours_clocked = Column(Float)
+    minutes_clocked = Column(Float)
+    staff_role = Column(String(100))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    staff = relationship("SalonStaff")
+    location = relationship("SalonLocation")
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_time_clock_date', 'clock_date'),
+        Index('idx_time_clock_staff', 'staff_id'),
+    )
+
+class SalonScheduleRecord(Base):
+    """Staff schedule records"""
+    __tablename__ = 'salon_schedules'
+    
+    id = Column(Integer, primary_key=True)
+    schedule_record_id = Column(String(100), unique=True)
+    location_id = Column(Integer, ForeignKey('salon_locations.id'))
+    staff_id = Column(Integer, ForeignKey('salon_staff.id'))
+    schedule_date = Column(Date, nullable=False)
+    start_time = Column(DateTime)
+    end_time = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    staff = relationship("SalonStaff")
+    location = relationship("SalonLocation")
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_schedule_date', 'schedule_date'),
+        Index('idx_schedule_staff', 'staff_id'),
+        Index('idx_schedule_location', 'location_id'),
     ) 

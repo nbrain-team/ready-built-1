@@ -82,3 +82,7 @@ dist/
 .env.development.local
 .env.test.local
 .env.production.local blazer/*.csv
+
+# Ignore large data files
+blazer/*.csv
+blazer/*.xlsx

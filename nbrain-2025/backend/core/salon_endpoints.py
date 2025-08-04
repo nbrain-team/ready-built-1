@@ -55,6 +55,57 @@ async def upload_performance_data(
     
     return result
 
+@router.post("/upload/transactions")
+async def upload_transaction_data(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_active_user)
+):
+    """Upload detailed line item transaction CSV file"""
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(status_code=400, detail="Only CSV files are accepted")
+    
+    content = await file.read()
+    result = salon_handler.ingest_transaction_data(content.decode())
+    
+    if not result['success']:
+        raise HTTPException(status_code=400, detail=result['error'])
+    
+    return result
+
+@router.post("/upload/timeclock")
+async def upload_time_clock_data(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_active_user)
+):
+    """Upload time clock CSV file"""
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(status_code=400, detail="Only CSV files are accepted")
+    
+    content = await file.read()
+    result = salon_handler.ingest_time_clock_data(content.decode())
+    
+    if not result['success']:
+        raise HTTPException(status_code=400, detail=result['error'])
+    
+    return result
+
+@router.post("/upload/schedules")
+async def upload_schedule_data(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_active_user)
+):
+    """Upload schedule records CSV file"""
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(status_code=400, detail="Only CSV files are accepted")
+    
+    content = await file.read()
+    result = salon_handler.ingest_schedule_data(content.decode())
+    
+    if not result['success']:
+        raise HTTPException(status_code=400, detail=result['error'])
+    
+    return result
+
 @router.post("/analytics/query")
 async def process_analytics_query(
     query: Dict[str, str],

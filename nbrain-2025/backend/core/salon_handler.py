@@ -16,7 +16,7 @@ import logging
 from .database import SessionLocal
 from .salon_models import (
     SalonLocation, SalonStaff, StaffPerformance, SalonClient,
-    SalonAppointment, StaffPrediction, SalonAnalytics
+    SalonAppointment, StaffPrediction, SalonAnalytics, SalonTransaction, SalonTimeClockEntry, SalonScheduleRecord
 )
 
 logger = logging.getLogger(__name__)
@@ -187,6 +187,204 @@ class SalonAnalyticsHandler:
                 "success": True,
                 "records_created": records_created,
                 "records_updated": records_updated
+            }
+            
+        except Exception as e:
+            db.rollback()
+            return {"success": False, "error": str(e)}
+        finally:
+            db.close()
+    
+    def ingest_transaction_data(self, file_content: str) -> Dict[str, Any]:
+        """Ingest detailed line item transaction data"""
+        db = SessionLocal()
+        try:
+            df = pd.read_csv(io.StringIO(file_content))
+            
+            # Skip summary rows
+            df = df[df['Sale id'] != 'All']
+            
+            records_created = 0
+            records_skipped = 0
+            
+            for _, row in df.iterrows():
+                sale_id = row.get('Sale id')
+                if pd.isna(sale_id):
+                    continue
+                
+                # Check if transaction exists
+                existing = db.query(SalonTransaction).filter_by(sale_id=sale_id).first()
+                if existing:
+                    records_skipped += 1
+                    continue
+                
+                # Get location
+                location_name = row.get('Location Name', '')
+                location = db.query(SalonLocation).filter_by(name=location_name).first()
+                if not location and location_name:
+                    location = SalonLocation(name=location_name)
+                    db.add(location)
+                    db.flush()
+                
+                # Get staff by name
+                staff_name = row.get('Staff Name', '')
+                staff = None
+                if staff_name and not pd.isna(staff_name):
+                    staff = db.query(SalonStaff).filter_by(full_name=staff_name).first()
+                
+                # Create transaction
+                transaction = SalonTransaction(
+                    sale_id=sale_id,
+                    location_id=location.id if location else None,
+                    sale_date=pd.to_datetime(row.get('Sale Date'), errors='coerce'),
+                    client_name=row.get('Client Name'),
+                    staff_id=staff.id if staff else None,
+                    service_name=row.get('Service Name'),
+                    sale_type=row.get('Sale Type'),
+                    net_service_sales=float(row.get('Net Service Sales', 0) or 0),
+                    net_sales=float(row.get('Net Sales', 0) or 0)
+                )
+                db.add(transaction)
+                records_created += 1
+            
+            db.commit()
+            
+            return {
+                "success": True,
+                "records_created": records_created,
+                "records_skipped": records_skipped
+            }
+            
+        except Exception as e:
+            db.rollback()
+            return {"success": False, "error": str(e)}
+        finally:
+            db.close()
+    
+    def ingest_time_clock_data(self, file_content: str) -> Dict[str, Any]:
+        """Ingest time clock data"""
+        db = SessionLocal()
+        try:
+            df = pd.read_csv(io.StringIO(file_content))
+            
+            # Skip summary rows
+            df = df[df['Timecard id'] != 'All']
+            
+            records_created = 0
+            records_skipped = 0
+            
+            for _, row in df.iterrows():
+                timecard_id = row.get('Timecard id')
+                if pd.isna(timecard_id):
+                    continue
+                
+                # Check if entry exists
+                existing = db.query(SalonTimeClockEntry).filter_by(timecard_id=timecard_id).first()
+                if existing:
+                    records_skipped += 1
+                    continue
+                
+                # Get staff by name
+                staff_name = row.get('Staff Name', '')
+                staff = db.query(SalonStaff).filter_by(full_name=staff_name).first()
+                if not staff and staff_name:
+                    # Create staff if not exists
+                    staff = SalonStaff(full_name=staff_name)
+                    db.add(staff)
+                    db.flush()
+                
+                # Get location
+                location_name = row.get('Location Name', '')
+                location = db.query(SalonLocation).filter_by(name=location_name).first()
+                if not location and location_name:
+                    location = SalonLocation(name=location_name)
+                    db.add(location)
+                    db.flush()
+                
+                # Parse dates
+                clock_date = pd.to_datetime(row.get('Date '), errors='coerce')
+                clock_in = pd.to_datetime(row.get('In At'), errors='coerce')
+                clock_out = pd.to_datetime(row.get('Out At'), errors='coerce')
+                
+                # Create time clock entry
+                entry = SalonTimeClockEntry(
+                    timecard_id=timecard_id,
+                    staff_id=staff.id if staff else None,
+                    location_id=location.id if location else None,
+                    clock_date=clock_date,
+                    clock_in=clock_in,
+                    clock_out=clock_out,
+                    reason=row.get('Reason '),
+                    hours_clocked=float(row.get('Hours Clocked', 0) or 0),
+                    minutes_clocked=float(row.get('Minutes Clocked', 0) or 0),
+                    staff_role=row.get('Staff Role Name')
+                )
+                db.add(entry)
+                records_created += 1
+            
+            db.commit()
+            
+            return {
+                "success": True,
+                "records_created": records_created,
+                "records_skipped": records_skipped
+            }
+            
+        except Exception as e:
+            db.rollback()
+            return {"success": False, "error": str(e)}
+        finally:
+            db.close()
+    
+    def ingest_schedule_data(self, file_content: str) -> Dict[str, Any]:
+        """Ingest schedule records data"""
+        db = SessionLocal()
+        try:
+            df = pd.read_csv(io.StringIO(file_content))
+            
+            records_created = 0
+            records_skipped = 0
+            
+            for _, row in df.iterrows():
+                schedule_id = row.get('ScheduleRecord id')
+                if pd.isna(schedule_id):
+                    continue
+                
+                # Check if schedule exists
+                existing = db.query(SalonScheduleRecord).filter_by(schedule_record_id=schedule_id).first()
+                if existing:
+                    records_skipped += 1
+                    continue
+                
+                # Get staff and location by ID (these are UUIDs in the data)
+                staff_id_str = row.get('Staff Id')
+                location_id_str = row.get('Location Id')
+                
+                # For now, we'll skip matching by UUID and create placeholder records
+                # In a real scenario, you'd need to map these UUIDs to your staff/location records
+                
+                # Parse date and times
+                schedule_date = pd.to_datetime(row.get('Start On'), errors='coerce')
+                start_time = pd.to_datetime(f"{row.get('Start On')} {row.get('Start At')}", errors='coerce')
+                end_time = pd.to_datetime(f"{row.get('Start On')} {row.get('End At')}", errors='coerce')
+                
+                # Create schedule record
+                schedule = SalonScheduleRecord(
+                    schedule_record_id=schedule_id,
+                    schedule_date=schedule_date,
+                    start_time=start_time,
+                    end_time=end_time
+                )
+                db.add(schedule)
+                records_created += 1
+            
+            db.commit()
+            
+            return {
+                "success": True,
+                "records_created": records_created,
+                "records_skipped": records_skipped,
+                "note": "Staff/Location mapping by UUID not implemented yet"
             }
             
         except Exception as e:
