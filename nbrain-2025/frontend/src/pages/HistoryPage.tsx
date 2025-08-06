@@ -1,9 +1,10 @@
-import { Box, Flex, Text, Card, Heading, Spinner, IconButton } from '@radix-ui/themes';
+import { Box, Flex, Text, Card, Heading, IconButton } from '@radix-ui/themes';
 import { useQuery } from '@tanstack/react-query';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { PersonIcon } from '@radix-ui/react-icons';
+import { Loader2 } from 'lucide-react';
 
 interface Conversation {
   id: string;
@@ -43,7 +44,7 @@ const HistoryPage = () => {
             <div className="page-content">
                 {isLoading && (
                     <Flex justify="center" align="center" style={{ height: '200px' }}>
-                        <Spinner size="3" />
+                        <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
                     </Flex>
                 )}
                 {error && <Text color="red">Failed to load chat history. Please try again later.</Text>}
