@@ -203,12 +203,62 @@ const SalonDashboard = () => {
     }));
   };
 
+  // Helper functions
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', { 
+      style: 'currency', 
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value || 0);
+  };
+
+  // Custom tooltip formatter for charts
+  const customTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-3 border rounded shadow-lg">
+          <p className="font-semibold">{label}</p>
+          {payload.map((entry: any, index: number) => {
+            const value = entry.name.toLowerCase().includes('revenue') || 
+                         entry.name.toLowerCase().includes('sales') ||
+                         entry.name.toLowerCase().includes('ticket') ||
+                         entry.dataKey === 'revenue' ||
+                         entry.dataKey === 'value' && (selectedMetric === 'revenue' || selectedMetric === 'ticket')
+                         ? formatCurrency(entry.value)
+                         : entry.value?.toLocaleString() || 0;
+            return (
+              <p key={index} style={{ color: entry.color }}>
+                {entry.name}: {value}
+              </p>
+            );
+          })}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Format Y-axis for currency
+  const formatYAxis = (value: number) => {
+    if (selectedMetric === 'revenue' || selectedMetric === 'ticket') {
+      // For large numbers, show abbreviated format
+      if (value >= 1000000) {
+        return `$${(value / 1000000).toFixed(1)}M`;
+      } else if (value >= 1000) {
+        return `$${(value / 1000).toFixed(0)}K`;
+      }
+      return formatCurrency(value);
+    }
+    return value.toLocaleString();
+  };
+
   // Metric card configuration
   const metricCards = [
     {
       id: 'revenue',
       title: 'Total Revenue',
-      value: `$${(dashboardData.overview.totalRevenue || 0).toLocaleString()}`,
+      value: formatCurrency(dashboardData.overview.totalRevenue || 0),
       icon: DollarSign,
       color: 'text-green-600',
       bgColor: 'bg-green-50'
@@ -232,38 +282,28 @@ const SalonDashboard = () => {
     {
       id: 'ticket',
       title: 'Average Ticket',
-      value: `$${(dashboardData.overview.averageTicket || 0).toFixed(2)}`,
+      value: formatCurrency(dashboardData.overview.averageTicket || 0),
       icon: TrendingUp,
       color: 'text-orange-600',
       bgColor: 'bg-orange-50'
     },
     {
       id: 'services',
-      title: 'Services Sold',
-      value: (dashboardData.overview.totalServices || 0).toLocaleString(),
+      title: 'Service Sales',
+      value: formatCurrency(dashboardData.overview.totalServices || 0),
       icon: Activity,
       color: 'text-indigo-600',
       bgColor: 'bg-indigo-50'
     },
     {
       id: 'products',
-      title: 'Products Sold',
-      value: (dashboardData.overview.totalProducts || 0).toLocaleString(),
+      title: 'Product Sales',
+      value: formatCurrency(dashboardData.overview.totalProducts || 0),
       icon: Package,
       color: 'text-pink-600',
       bgColor: 'bg-pink-50'
     }
   ];
-
-  // Helper functions
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', { 
-      style: 'currency', 
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(value);
-  };
 
   const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7c7c', '#8dd1e1', '#d084d0', '#ffb347', '#87ceeb'];
 
@@ -484,8 +524,8 @@ const SalonDashboard = () => {
               </defs>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
+              <YAxis tickFormatter={formatYAxis} />
+              <Tooltip content={customTooltip} />
               <Area 
                 type="monotone" 
                 dataKey="value" 
@@ -529,8 +569,8 @@ const SalonDashboard = () => {
                     tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   />
                   <YAxis yAxisId="left" />
-                  <YAxis yAxisId="right" orientation="right" />
-                  <Tooltip />
+                  <YAxis yAxisId="right" orientation="right" tickFormatter={(value) => formatCurrency(value)} />
+                  <Tooltip content={customTooltip} />
                   <Legend />
                   <Bar yAxisId="left" dataKey="transaction_count" fill="#8884d8" name="Transactions" />
                   <Line yAxisId="right" type="monotone" dataKey="revenue" stroke="#82ca9d" name="Revenue" />
@@ -591,12 +631,13 @@ const SalonDashboard = () => {
                       outerRadius={100}
                       fill="#8884d8"
                       dataKey="revenue"
+                      label={(entry) => formatCurrency(entry.revenue)}
                     >
                       {dashboardData.serviceBreakdown.slice(0, 8).map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip />
+                    <Tooltip content={customTooltip} />
                   </PieChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -741,8 +782,8 @@ const SalonDashboard = () => {
                       dataKey="date" 
                       tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     />
-                    <YAxis />
-                    <Tooltip />
+                    <YAxis tickFormatter={(value) => formatCurrency(value)} />
+                    <Tooltip content={customTooltip} />
                     <Area type="monotone" dataKey="revenue" stroke="#8884d8" fill="#8884d8" />
                   </AreaChart>
                 </ResponsiveContainer>
