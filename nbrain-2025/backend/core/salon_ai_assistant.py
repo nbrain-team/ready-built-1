@@ -273,73 +273,132 @@ class SalonAIAssistant:
         """Analyze characteristics of most productive stylists"""
         db = SessionLocal()
         try:
-            # Get top 20% performers by sales
-            all_performance = db.query(StaffPerformance).all()
+            # For now, use transaction data instead of performance data since it's more complete
+            # Get top performers from transactions
+            from sqlalchemy import and_
             
-            # Group by staff and calculate averages
-            staff_metrics = {}
-            for perf in all_performance:
-                if perf.staff_id not in staff_metrics:
-                    staff_metrics[perf.staff_id] = []
-                staff_metrics[perf.staff_id].append(perf)
+            # Get staff performance from transactions
+            staff_performance = db.query(
+                SalonTransaction.staff_id,
+                SalonStaff.full_name,
+                func.count(SalonTransaction.id).label('transaction_count'),
+                func.sum(SalonTransaction.net_sales).label('total_sales'),
+                func.count(func.distinct(SalonTransaction.client_name)).label('unique_clients'),
+                func.avg(SalonTransaction.net_sales).label('avg_ticket')
+            ).join(
+                SalonStaff, SalonTransaction.staff_id == SalonStaff.id
+            ).filter(
+                SalonTransaction.sale_date >= date(2025, 1, 1)
+            ).group_by(
+                SalonTransaction.staff_id,
+                SalonStaff.full_name
+            ).having(
+                func.count(SalonTransaction.id) >= 20  # Minimum transactions for analysis
+            ).all()
             
-            staff_averages = []
-            for staff_id, perfs in staff_metrics.items():
-                if len(perfs) >= 4:  # Need sufficient data
-                    staff_averages.append({
-                        "staff_id": staff_id,
-                        "avg_sales": np.mean([p.net_sales for p in perfs]),
-                        "avg_prebooking": np.mean([p.prebooked_percent for p in perfs]),
-                        "avg_utilization": np.mean([p.utilization_percent for p in perfs]),
-                        "avg_clients": np.mean([p.service_client_count for p in perfs]),
-                        "avg_ticket": np.mean([p.average_ticket_size for p in perfs]),
-                        "retention_rate": np.mean([p.returning_client_percent for p in perfs])
-                    })
-            
-            # Sort by sales and get top 20%
-            staff_averages.sort(key=lambda x: x["avg_sales"], reverse=True)
-            top_performers = staff_averages[:len(staff_averages)//5]
-            avg_performers = staff_averages[len(staff_averages)//5:]
-            
-            characteristics = {
-                "prebooking_rate": {
-                    "top_performers": np.mean([s["avg_prebooking"] for s in top_performers]) * 100,
-                    "average_performers": np.mean([s["avg_prebooking"] for s in avg_performers]) * 100
-                },
-                "capacity_utilization": {
-                    "top_performers": np.mean([s["avg_utilization"] for s in top_performers]) * 100,
-                    "average_performers": np.mean([s["avg_utilization"] for s in avg_performers]) * 100
-                },
-                "client_retention": {
-                    "top_performers": np.mean([s["retention_rate"] for s in top_performers]) * 100,
-                    "average_performers": np.mean([s["retention_rate"] for s in avg_performers]) * 100
-                },
-                "average_ticket": {
-                    "top_performers": np.mean([s["avg_ticket"] for s in top_performers]),
-                    "average_performers": np.mean([s["avg_ticket"] for s in avg_performers])
+            if not staff_performance:
+                return {
+                    "query_type": "productive_characteristics",
+                    "response": "Insufficient data to analyze productive characteristics. Need more transaction history.",
+                    "data": {}
                 }
-            }
+            
+            # Sort by total sales to identify top performers
+            staff_list = []
+            for staff in staff_performance:
+                staff_list.append({
+                    "staff_id": staff.staff_id,
+                    "name": staff.full_name,
+                    "total_sales": float(staff.total_sales or 0),
+                    "transactions": staff.transaction_count,
+                    "unique_clients": staff.unique_clients,
+                    "avg_ticket": float(staff.avg_ticket or 0),
+                    "sales_per_transaction": float(staff.total_sales / staff.transaction_count) if staff.transaction_count > 0 else 0
+                })
+            
+            # Sort by total sales
+            staff_list.sort(key=lambda x: x["total_sales"], reverse=True)
+            
+            # Identify top 20% as high performers
+            cutoff = max(1, len(staff_list) // 5)
+            top_performers = staff_list[:cutoff]
+            avg_performers = staff_list[cutoff:] if len(staff_list) > cutoff else []
+            
+            # Calculate characteristics
+            characteristics = {}
+            
+            if top_performers:
+                characteristics["top_performers"] = {
+                    "count": len(top_performers),
+                    "avg_sales": np.mean([s["total_sales"] for s in top_performers]),
+                    "avg_transactions": np.mean([s["transactions"] for s in top_performers]),
+                    "avg_clients": np.mean([s["unique_clients"] for s in top_performers]),
+                    "avg_ticket": np.mean([s["avg_ticket"] for s in top_performers])
+                }
+            
+            if avg_performers:
+                characteristics["average_performers"] = {
+                    "count": len(avg_performers),
+                    "avg_sales": np.mean([s["total_sales"] for s in avg_performers]),
+                    "avg_transactions": np.mean([s["transactions"] for s in avg_performers]),
+                    "avg_clients": np.mean([s["unique_clients"] for s in avg_performers]),
+                    "avg_ticket": np.mean([s["avg_ticket"] for s in avg_performers])
+                }
+            
+            # Calculate key differences
+            key_differences = {}
+            if top_performers and avg_performers:
+                top_stats = characteristics["top_performers"]
+                avg_stats = characteristics["average_performers"]
+                
+                key_differences = {
+                    "sales_difference": f"{((top_stats['avg_sales'] - avg_stats['avg_sales']) / avg_stats['avg_sales'] * 100):.1f}% higher",
+                    "client_difference": f"{((top_stats['avg_clients'] - avg_stats['avg_clients']) / avg_stats['avg_clients'] * 100):.1f}% more clients",
+                    "ticket_difference": f"${(top_stats['avg_ticket'] - avg_stats['avg_ticket']):.2f} higher per ticket"
+                }
+            
+            # Identify top 3 performers for examples
+            top_3 = top_performers[:3] if len(top_performers) >= 3 else top_performers
             
             return {
                 "query_type": "productive_characteristics",
-                "response": "Characteristics of most productive stylists:",
+                "response": f"Analysis of productive stylist characteristics based on {len(staff_list)} staff members:",
                 "data": {
-                    "key_characteristics": characteristics,
-                    "success_factors": {
-                        "prebooking": f"Top performers maintain {characteristics['prebooking_rate']['top_performers']:.1f}% prebooking rate",
-                        "utilization": f"Achieve {characteristics['capacity_utilization']['top_performers']:.1f}% capacity utilization",
-                        "retention": f"Retain {characteristics['client_retention']['top_performers']:.1f}% of clients",
-                        "ticket_size": f"Average ticket ${characteristics['average_ticket']['top_performers']:.2f}"
+                    "key_characteristics": {
+                        "top_performer_metrics": characteristics.get("top_performers", {}),
+                        "average_performer_metrics": characteristics.get("average_performers", {}),
+                        "differences": key_differences
                     },
+                    "top_performers_examples": [
+                        {
+                            "name": p["name"],
+                            "monthly_sales": f"${p['total_sales']:,.2f}",
+                            "unique_clients": p["unique_clients"],
+                            "avg_ticket": f"${p['avg_ticket']:.2f}"
+                        } for p in top_3
+                    ],
+                    "success_factors": [
+                        f"Top performers generate ${characteristics['top_performers']['avg_sales']:,.2f} in sales",
+                        f"They serve {characteristics['top_performers']['avg_clients']:.0f} unique clients on average",
+                        f"Average ticket size of ${characteristics['top_performers']['avg_ticket']:.2f}",
+                        f"Complete {characteristics['top_performers']['avg_transactions']:.0f} transactions per month"
+                    ] if top_performers else [],
                     "recommendations": [
-                        "Train staff to achieve 40%+ prebooking rates",
-                        "Target 70%+ capacity utilization",
-                        "Focus on client retention strategies",
-                        "Upsell techniques to increase average ticket"
+                        "Focus on increasing average ticket size through upselling",
+                        "Build a larger client base through referral programs",
+                        "Improve client retention to increase transaction frequency",
+                        "Train on techniques used by top performers"
                     ]
                 }
             }
             
+        except Exception as e:
+            logger.error(f"Error in analyze_productive_characteristics: {str(e)}")
+            return {
+                "query_type": "productive_characteristics",
+                "response": "I encountered an error analyzing the data. Please try a different query.",
+                "error": str(e)
+            }
         finally:
             db.close()
     
