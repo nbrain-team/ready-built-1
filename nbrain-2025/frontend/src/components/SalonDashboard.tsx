@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -14,12 +15,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { 
   TrendingUp, Users, DollarSign, ShoppingCart, Clock, 
   Calendar, Search, Download, Filter, ChevronDown,
-  Activity, UserCheck, Package, Star, Target, AlertCircle, Sparkles
+  Activity, UserCheck, Package, Star, Target, AlertCircle, Sparkles, LogOut
 } from 'lucide-react';
 import { salonApi } from '@/services/salonApi';
 import SalonAIChat from './SalonAIChat';
 
 const SalonDashboard = () => {
+  const navigate = useNavigate();
   // State management
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -265,6 +267,12 @@ const SalonDashboard = () => {
 
   const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7c7c', '#8dd1e1', '#d084d0', '#ffb347', '#87ceeb'];
 
+  const handleLogout = () => {
+    sessionStorage.removeItem('salonAuth');
+    sessionStorage.removeItem('salonUser');
+    navigate('/salon-login');
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -333,72 +341,85 @@ const SalonDashboard = () => {
           <p className="text-gray-600 mt-1">Real-time insights into your salon performance</p>
         </div>
         
-        {/* Date Range Selector */}
-        <div className="flex items-center gap-2">
-          <Calendar className="h-5 w-5 text-gray-500" />
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => {
-                setStartDate('2025-01-01');
-                setEndDate('2025-01-31');
-                setDateRangeLabel('January 2025');
-              }}
-              className={dateRangeLabel === 'January 2025' ? 'bg-blue-100' : ''}
-            >
-              January 2025
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setDateRange(0, 'Today')}
-            >
-              Today
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setDateRange(7, 'Last 7 days')}
-            >
-              7 days
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setDateRange(30, 'Last 30 days')}
-            >
-              30 days
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setDateRange(-1, 'This month')}
-            >
-              This month
-            </Button>
+        {/* Date Range Selector and Logout */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-gray-500" />
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  setStartDate('2025-01-01');
+                  setEndDate('2025-01-31');
+                  setDateRangeLabel('January 2025');
+                }}
+                className={dateRangeLabel === 'January 2025' ? 'bg-blue-100' : ''}
+              >
+                January 2025
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setDateRange(0, 'Today')}
+              >
+                Today
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setDateRange(7, 'Last 7 days')}
+              >
+                7 days
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setDateRange(30, 'Last 30 days')}
+              >
+                30 days
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setDateRange(-1, 'This month')}
+              >
+                This month
+              </Button>
+            </div>
+            <div className="flex gap-2 ml-4">
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setDateRangeLabel('Custom');
+                }}
+                className="w-[140px]"
+              />
+              <span className="self-center">to</span>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setDateRangeLabel('Custom');
+                }}
+                className="w-[140px]"
+              />
+            </div>
           </div>
-          <div className="flex gap-2 ml-4">
-            <Input
-              type="date"
-              value={startDate}
-              onChange={(e) => {
-                setStartDate(e.target.value);
-                setDateRangeLabel('Custom');
-              }}
-              className="w-[140px]"
-            />
-            <span className="self-center">to</span>
-            <Input
-              type="date"
-              value={endDate}
-              onChange={(e) => {
-                setEndDate(e.target.value);
-                setDateRangeLabel('Custom');
-              }}
-              className="w-[140px]"
-            />
-          </div>
+          
+          {/* Logout Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleLogout}
+            className="flex items-center gap-2"
+          >
+            <LogOut className="h-4 w-4" />
+            Logout
+          </Button>
         </div>
       </div>
 

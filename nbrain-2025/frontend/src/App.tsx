@@ -24,6 +24,8 @@ import { ProfilePage } from './pages/ProfilePage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import SocialMediaCalendar from './pages/SocialMediaCalendar';
 import SalonDashboard from './components/SalonDashboard';
+import SalonLogin from './pages/SalonLogin';
+import ProtectedSalonRoute from './components/ProtectedSalonRoute';
 import './styles/animations.css';
 
 // Define the structure for a message
@@ -57,6 +59,17 @@ function AppRoutes() {
   return (
     <Router>
       <Routes>
+        {/* Salon routes - separate from main app */}
+        <Route path="/salon-login" element={<SalonLogin />} />
+        <Route 
+          path="/salon" 
+          element={
+            <ProtectedSalonRoute>
+              <SalonDashboard />
+            </ProtectedSalonRoute>
+          } 
+        />
+
         {/* Auth routes with dark theme */}
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<LoginPage />} />
@@ -96,7 +109,6 @@ function AppRoutes() {
                   <Route path="/client/:clientId" element={<ClientDetail />} />
                   <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/social-calendar" element={<SocialMediaCalendar />} />
-                  <Route path="/salon" element={<SalonDashboard />} />
                   <Route path="*" element={<Navigate to="/" />} />
                 </Routes>
               </MainLayout>
