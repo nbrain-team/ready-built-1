@@ -135,12 +135,37 @@ const SalonDashboard = () => {
         salonApi.getClientInsights()
       ]);
 
+      console.log('API Response Overview:', overview); // Debug log
+
+      // Map the API response to the expected format
+      const mappedOverview = {
+        totalRevenue: overview.total_revenue || 0,
+        totalTransactions: overview.total_transactions || 0,
+        uniqueClients: overview.unique_clients || 0,
+        averageTicket: overview.avg_ticket || 0,
+        totalServices: overview.service_sales || 0,
+        totalProducts: overview.product_sales || 0
+      };
+
+      // Map trends data if it exists
+      const mappedTrends = (trends || []).map((trend: any) => ({
+        date: trend.period || trend.date,
+        revenue: trend.total_sales || trend.revenue || 0,
+        transaction_count: trend.transaction_count || 0,
+        unique_clients: trend.unique_clients || 0,
+        average_ticket: trend.total_sales && trend.transaction_count 
+          ? trend.total_sales / trend.transaction_count 
+          : 0,
+        service_count: trend.service_sales || 0,
+        product_count: trend.product_sales || 0
+      }));
+
       setDashboardData({
-        overview: overview.data || overview,
-        trends: trends.data || trends || [],
-        topPerformers: topPerformers.data || topPerformers || [],
-        serviceBreakdown: serviceBreakdown.data || serviceBreakdown || [],
-        clientInsights: clientInsights.data || clientInsights || {
+        overview: mappedOverview,
+        trends: mappedTrends,
+        topPerformers: topPerformers || [],
+        serviceBreakdown: serviceBreakdown || [],
+        clientInsights: clientInsights || {
           total_clients: 0,
           new_clients: 0,
           returning_clients: 0,
