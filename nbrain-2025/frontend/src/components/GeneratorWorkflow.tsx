@@ -1,8 +1,9 @@
-import { Box, Card, Text, Button, Flex, TextArea, Select, Spinner, Checkbox, Heading, Grid } from '@radix-ui/themes';
+import { Box, Card, Text, Button, Flex, TextArea, Select, Checkbox, Heading, Grid } from '@radix-ui/themes';
 import { UploadIcon, DownloadIcon } from '@radix-ui/react-icons';
 import { useState, useRef, ChangeEvent } from 'react';
 import Papa from 'papaparse';
 import ReactMarkdown from 'react-markdown';
+import { Loader2 } from 'lucide-react';
 
 // A modern, reusable file input component
 const FileInput = ({ onFileSelect, disabled }: { onFileSelect: (file: File) => void, disabled: boolean }) => {
@@ -283,7 +284,7 @@ export const GeneratorWorkflow = () => {
                                 />
 
                                 <Button onClick={() => handleGenerate(true)} disabled={isLoading || !coreContent} mt="3">
-                                    {isLoading ? <Spinner /> : 'Preview First Row'}
+                                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Preview First Row'}
                                 </Button>
                             </Box>
                         )}
@@ -298,7 +299,7 @@ export const GeneratorWorkflow = () => {
                                     </Box>
                                 </Card>
                                 <Button onClick={() => handleGenerate(false)} disabled={isLoading} mt="3">
-                                    {isLoading ? <Spinner /> : 'Looks Good! Generate Full CSV'}
+                                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Looks Good! Generate Full CSV'}
                                 </Button>
                             </Box>
                         )}

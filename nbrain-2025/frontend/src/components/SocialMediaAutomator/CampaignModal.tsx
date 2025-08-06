@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Box, Flex, Text, TextField, Button, Heading, Checkbox, Slider, Progress, Spinner } from '@radix-ui/themes';
+import { Box, Flex, Text, TextField, Button, Heading, Checkbox, Slider } from '@radix-ui/themes';
 import { VideoIcon, UploadIcon, CheckIcon } from '@radix-ui/react-icons';
+import { Loader2 } from 'lucide-react';
 import { Client, CampaignFormData, Platform, Campaign, CampaignStatus } from './types';
 import api from '../../api';
 
@@ -211,7 +212,7 @@ export const CampaignModal: React.FC<CampaignModalProps> = ({
               >
                 {loading ? (
                   <Flex align="center" gap="2">
-                    <Spinner size="1" />
+                    <Loader2 className="animate-spin" />
                     <Text>Uploading...</Text>
                   </Flex>
                 ) : (
@@ -230,8 +231,13 @@ export const CampaignModal: React.FC<CampaignModalProps> = ({
               <Text size="2" color="gray">
                 Extracting clips and generating social content
               </Text>
-              <Progress value={campaign.progress} style={{ width: '100%' }} />
-              <Text size="1" color="gray">{campaign.progress}%</Text>
+                        {/* Progress Bar */}
+                        <Flex direction="column" gap="1">
+                          <div style={{ width: '100%', height: '8px', backgroundColor: '#e5e5e5', borderRadius: '4px', overflow: 'hidden' }}>
+                            <div style={{ width: `${campaign.progress}%`, height: '100%', backgroundColor: '#4caf50', transition: 'width 0.3s' }} />
+                          </div>
+                          <Text size="1" color="gray">{campaign.progress}%</Text>
+                        </Flex>
             </>
           ) : campaign.status === CampaignStatus.READY ? (
             <>

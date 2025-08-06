@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Box, Text, Spinner } from '@radix-ui/themes';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Box, Text } from '@radix-ui/themes';
+import { Loader2 } from 'lucide-react';
 import api from '../api';
 
 const OracleAuthCallback = () => {
@@ -69,16 +70,11 @@ const OracleAuthCallback = () => {
   }, [navigate]);
 
   return (
-    <Box style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      alignItems: 'center', 
-      justifyContent: 'center', 
-      height: '100vh',
-      gap: '1rem'
-    }}>
-      <Spinner size="3" />
-      <Text size="3">{status}</Text>
+    <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+      <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
+      <Text size="3" style={{ marginTop: '1rem' }}>
+        Completing Oracle Ads authentication...
+      </Text>
     </Box>
   );
 };
