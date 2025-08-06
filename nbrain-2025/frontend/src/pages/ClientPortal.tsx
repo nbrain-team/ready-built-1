@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Heading, Text, Card, Flex, Button, TextField, Badge, Avatar, Progress, IconButton, ScrollArea, Separator } from '@radix-ui/themes';
+import { Box, Heading, Text, Card, Flex, Button, TextField, Badge, Avatar, IconButton, ScrollArea, Separator } from '@radix-ui/themes';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { PlusIcon, MagnifyingGlassIcon, ActivityLogIcon, EnvelopeClosedIcon, CheckCircledIcon, CalendarIcon, ExclamationTriangleIcon, LightningBoltIcon } from '@radix-ui/react-icons';
 import api from '../api';

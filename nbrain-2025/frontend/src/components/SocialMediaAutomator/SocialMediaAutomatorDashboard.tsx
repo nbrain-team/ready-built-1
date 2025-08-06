@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Flex, Text, Button, Tabs, Heading, Badge, Progress } from '@radix-ui/themes';
+import { Box, Flex, Text, Button, Tabs, Heading, Badge } from '@radix-ui/themes';
 import { PlusIcon, CalendarIcon, PersonIcon, VideoIcon } from '@radix-ui/react-icons';
 import { ClientList } from './ClientList';
 import { CalendarView } from './CalendarView';
@@ -285,7 +285,9 @@ export const SocialMediaAutomatorDashboard: React.FC = () => {
                         </Badge>
                         {campaign.status === CampaignStatus.PROCESSING && (
                           <>
-                            <Progress value={campaign.progress || 0} style={{ width: '100px' }} />
+                            <div style={{ width: '100px', height: '4px', backgroundColor: '#e5e5e5', borderRadius: '2px', overflow: 'hidden' }}>
+                              <div style={{ width: `${campaign.progress || 0}%`, height: '100%', backgroundColor: '#3b82f6', transition: 'width 0.3s' }} />
+                            </div>
                             <Text size="1" color="gray">{campaign.progress || 0}%</Text>
                           </>
                         )}

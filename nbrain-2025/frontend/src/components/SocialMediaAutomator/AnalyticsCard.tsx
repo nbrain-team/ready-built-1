@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Card, Flex, Text, Progress } from '@radix-ui/themes';
+import { Box, Card, Flex, Text } from '@radix-ui/themes';
 import { CheckCircledIcon, CrossCircledIcon, InfoCircledIcon } from '@radix-ui/react-icons';
 
 interface AnalyticsData {
@@ -52,7 +52,9 @@ export const AnalyticsCard: React.FC<AnalyticsCardProps> = ({ data }) => {
                 <CrossCircledIcon color="orange" width="24" height="24" />
               )}
             </Flex>
-            <Progress value={blendedEnrichmentRate} max={100} size="2" color="blue" />
+            <div style={{ width: '100%', height: '8px', backgroundColor: '#e5e5e5', borderRadius: '4px', overflow: 'hidden' }}>
+              <div style={{ width: `${blendedEnrichmentRate}%`, height: '100%', backgroundColor: '#3b82f6', transition: 'width 0.3s' }} />
+            </div>
             <Text size="1" color="gray">
               {totalEnriched} of {totalRecords} records enriched successfully
             </Text>
@@ -71,7 +73,9 @@ export const AnalyticsCard: React.FC<AnalyticsCardProps> = ({ data }) => {
                     {formatPercentage(data.emailEnrichmentRate)}
                   </Text>
                 </Flex>
-                <Progress value={data.emailEnrichmentRate} max={100} size="1" color="blue" />
+                <div style={{ width: '100%', height: '4px', backgroundColor: '#e5e5e5', borderRadius: '2px', overflow: 'hidden' }}>
+                  <div style={{ width: `${data.emailEnrichmentRate}%`, height: '100%', backgroundColor: '#3b82f6', transition: 'width 0.3s' }} />
+                </div>
                 <Flex justify="between">
                   <Text size="1" color="gray">Total</Text>
                   <Text size="1">{data.totalEmails}</Text>
@@ -80,6 +84,9 @@ export const AnalyticsCard: React.FC<AnalyticsCardProps> = ({ data }) => {
                   <Text size="1" color="gray">Enriched</Text>
                   <Text size="1" color="green">{data.enrichedEmails}</Text>
                 </Flex>
+                <Text size="1" color="gray">
+                  {data.enrichedEmails} / {data.totalEmails} enriched
+                </Text>
               </Flex>
             </Card>
           </Box>
@@ -94,7 +101,9 @@ export const AnalyticsCard: React.FC<AnalyticsCardProps> = ({ data }) => {
                     {formatPercentage(data.phoneEnrichmentRate)}
                   </Text>
                 </Flex>
-                <Progress value={data.phoneEnrichmentRate} max={100} size="1" color="green" />
+                <div style={{ width: '100%', height: '4px', backgroundColor: '#e5e5e5', borderRadius: '2px', overflow: 'hidden' }}>
+                  <div style={{ width: `${data.phoneEnrichmentRate}%`, height: '100%', backgroundColor: '#10b981', transition: 'width 0.3s' }} />
+                </div>
                 <Flex justify="between">
                   <Text size="1" color="gray">Total</Text>
                   <Text size="1">{data.totalPhones}</Text>
@@ -103,6 +112,9 @@ export const AnalyticsCard: React.FC<AnalyticsCardProps> = ({ data }) => {
                   <Text size="1" color="gray">Enriched</Text>
                   <Text size="1" color="green">{data.enrichedPhones}</Text>
                 </Flex>
+                <Text size="1" color="gray">
+                  {data.enrichedPhones} / {data.totalPhones} enriched
+                </Text>
               </Flex>
             </Card>
           </Box>

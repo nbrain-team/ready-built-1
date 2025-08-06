@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Box, Flex, Text, TextField, IconButton, Card, Heading, Badge, Button, Progress } from '@radix-ui/themes';
+import { Box, Flex, Text, TextField, IconButton, Card, Heading, Badge, Button } from '@radix-ui/themes';
 import { PaperPlaneIcon, Cross2Icon, BookmarkIcon } from '@radix-ui/react-icons';
 import api from '../api';
 import ReactMarkdown from 'react-markdown';
@@ -321,7 +321,9 @@ export const AgentIdeator = ({ onClose, onComplete }: AgentIdeatorProps) => {
                 <Flex align="center" gap="3">
                     <Text size="2" color="gray">Progress</Text>
                     <Box style={{ flex: 1 }}>
-                        <Progress value={progress} />
+                        <div style={{ width: '100%', height: '8px', backgroundColor: '#e5e5e5', borderRadius: '4px', overflow: 'hidden' }}>
+                            <div style={{ width: `${progress}%`, height: '100%', backgroundColor: '#3b82f6', transition: 'width 0.3s' }} />
+                        </div>
                     </Box>
                     <Text size="2" color="gray">{Math.round(progress)}%</Text>
                 </Flex>
