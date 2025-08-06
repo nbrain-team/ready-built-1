@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { 
   Send, Bot, User, TrendingUp, Users, DollarSign, 
-  Calendar, Target, Activity, AlertCircle, Sparkles
+  Calendar, Target, Activity, AlertCircle, Sparkles, Loader2
 } from 'lucide-react';
 import { salonApi } from '@/services/salonApi';
 import ReactMarkdown from 'react-markdown';
@@ -36,7 +36,7 @@ const SalonAIChat: React.FC = () => {
     {
       id: '1',
       type: 'assistant',
-      content: "Hello! I'm your Salon Analytics AI Assistant. I can help you understand your salon's performance, predict staff success, identify growth opportunities, and optimize operations. What would you like to know?",
+      content: "Hello! I'm your Salon Analytics Assistant. I can help you analyze staff performance, predict success, understand client behavior, and identify growth opportunities. What would you like to know?",
       timestamp: new Date()
     }
   ]);
@@ -67,22 +67,50 @@ const SalonAIChat: React.FC = () => {
     setLoading(true);
 
     try {
+      console.log('Sending query to AI:', input);
       const response = await salonApi.processAnalyticsQuery(input);
+      console.log('AI Response:', response);
       
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
-        content: response.response || "I've analyzed your query. Here's what I found:",
+        content: response.response || response.message || 'I processed your request but received an unexpected response format.',
         data: response.data,
         timestamp: new Date()
       };
-
+      
       setMessages(prev => [...prev, assistantMessage]);
-    } catch (error) {
+    } catch (error: any) {
+      console.error('AI Chat Error:', error);
+      
+      let errorContent = "I apologize, but I encountered an error processing your request.";
+      
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        console.error('Error response:', error.response.data);
+        console.error('Error status:', error.response.status);
+        
+        if (error.response.status === 404) {
+          errorContent = "I'm having trouble connecting to the analytics service. Please try refreshing the page or contact support if the issue persists.";
+        } else if (error.response.status === 500) {
+          errorContent = "The server encountered an error processing your request. Please try again with a simpler query.";
+        } else if (error.response.status === 429) {
+          errorContent = "Too many requests. Please wait a moment before trying again.";
+        }
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.error('No response received:', error.request);
+        errorContent = "Unable to reach the server. Please check your internet connection and try again.";
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        console.error('Error setting up request:', error.message);
+      }
+      
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
-        content: "I apologize, but I encountered an error processing your request. Please try again.",
+        content: errorContent,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -236,104 +264,118 @@ const SalonAIChat: React.FC = () => {
     return content;
   };
 
-  return (
-    <div className="h-full flex flex-col bg-white rounded-lg shadow-sm">
-      <div className="px-4 py-3 border-b flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <Bot className="h-5 w-5 text-blue-500" />
-          <h3 className="font-semibold text-gray-900">Salon AI Analytics Assistant</h3>
+  try {
+    return (
+      <div className="h-full flex flex-col bg-white rounded-lg shadow-sm">
+        <div className="px-4 py-3 border-b flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Bot className="h-5 w-5 text-blue-500" />
+            <h3 className="font-semibold text-gray-900">Salon AI Analytics Assistant</h3>
+          </div>
+        </div>
+        
+        <div className="flex-1 flex flex-col p-4 min-h-0 overflow-hidden">
+          {/* Sample Questions */}
+          <div className="mb-3 flex-shrink-0">
+            <p className="text-xs text-gray-500 mb-2">Try asking:</p>
+            <div className="flex flex-wrap gap-2">
+              {SAMPLE_QUESTIONS.slice(0, 3).map((question, idx) => (
+                <Button
+                  key={idx}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleSampleQuestion(question)}
+                  className="text-xs"
+                >
+                  {question}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* Messages Container - Properly constrained */}
+          <div className="flex-1 overflow-y-auto mb-3 min-h-0">
+            <div className="space-y-4 pb-2">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div className={`max-w-[80%] ${message.type === 'user' ? 'order-2' : 'order-1'}`}>
+                    <div className="flex items-start gap-2">
+                      {message.type === 'assistant' && (
+                        <Bot className="h-6 w-6 text-blue-500 mt-1 flex-shrink-0" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div
+                          className={`p-3 rounded-lg ${
+                            message.type === 'user'
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-gray-100 text-gray-900'
+                          }`}
+                        >
+                          {renderMessageContent(message.content, message.type)}
+                        </div>
+                        {message.data && renderData(message.data)}
+                        <div className="text-xs text-gray-500 mt-1">
+                          {message.timestamp.toLocaleTimeString()}
+                        </div>
+                      </div>
+                      {message.type === 'user' && (
+                        <User className="h-6 w-6 text-gray-500 mt-1 flex-shrink-0" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {loading && (
+                <div className="flex justify-start">
+                  <div className="flex items-start gap-2">
+                    <Bot className="h-6 w-6 text-blue-500 mt-1 flex-shrink-0" />
+                    <div className="bg-gray-100 text-gray-900 p-3 rounded-lg">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+          </div>
+
+          {/* Input - Fixed at bottom */}
+          <div className="flex gap-2 flex-shrink-0 pt-2 border-t">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+              placeholder="Ask about staff performance, client behavior, growth opportunities..."
+              disabled={loading}
+              className="flex-1"
+            />
+            <Button onClick={handleSend} disabled={loading || !input.trim()} size="sm">
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
-      
-      <div className="flex-1 flex flex-col p-4 min-h-0 overflow-hidden">
-        {/* Sample Questions */}
-        <div className="mb-3 flex-shrink-0">
-          <p className="text-xs text-gray-600 mb-2">Try asking:</p>
-          <div className="flex flex-wrap gap-2">
-            {SAMPLE_QUESTIONS.slice(0, 3).map((question, idx) => (
-              <Button
-                key={idx}
-                variant="outline"
-                size="sm"
-                onClick={() => handleSampleQuestion(question)}
-                className="text-xs"
-              >
-                {question.substring(0, 40)}...
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* Messages Container - Properly constrained */}
-        <div className="flex-1 overflow-y-auto mb-3 min-h-0">
-          <div className="space-y-4 pb-2">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div className={`max-w-[80%] ${message.type === 'user' ? 'order-2' : 'order-1'}`}>
-                  <div className="flex items-start gap-2">
-                    {message.type === 'assistant' && (
-                      <Bot className="h-6 w-6 text-blue-500 mt-1 flex-shrink-0" />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <div
-                        className={`p-3 rounded-lg ${
-                          message.type === 'user'
-                            ? 'bg-blue-500 text-white'
-                            : 'bg-gray-100 text-gray-900'
-                        }`}
-                      >
-                        {renderMessageContent(message.content, message.type)}
-                      </div>
-                      {message.data && renderData(message.data)}
-                      <div className="text-xs text-gray-500 mt-1">
-                        {message.timestamp.toLocaleTimeString()}
-                      </div>
-                    </div>
-                    {message.type === 'user' && (
-                      <User className="h-6 w-6 text-gray-500 mt-1 flex-shrink-0" />
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-            {loading && (
-              <div className="flex justify-start">
-                <div className="flex items-center gap-2">
-                  <Bot className="h-6 w-6 text-blue-500" />
-                  <div className="bg-gray-100 p-3 rounded-lg">
-                    <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-        </div>
-
-        {/* Input - Fixed at bottom */}
-        <div className="flex gap-2 flex-shrink-0 pt-2 border-t">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Ask about staff performance, client behavior, growth opportunities..."
-            disabled={loading}
-            className="flex-1"
-          />
-          <Button onClick={handleSend} disabled={loading || !input.trim()} size="sm">
-            <Send className="h-4 w-4" />
+    );
+  } catch (error) {
+    console.error('Error rendering SalonAIChat:', error);
+    return (
+      <div className="h-full flex items-center justify-center bg-white rounded-lg shadow-sm">
+        <div className="text-center p-6">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Unable to Load AI Assistant</h3>
+          <p className="text-sm text-gray-600 mb-4">
+            There was an error loading the AI assistant. Please refresh the page to try again.
+          </p>
+          <Button onClick={() => window.location.reload()} variant="outline">
+            Refresh Page
           </Button>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
 };
 
 export default SalonAIChat; 
