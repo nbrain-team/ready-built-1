@@ -24,16 +24,10 @@ const SalonDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedMetric, setSelectedMetric] = useState('revenue');
-  const [dateRangeLabel, setDateRangeLabel] = useState('Last 30 days');
+  const [dateRangeLabel, setDateRangeLabel] = useState('January 2025');
   const [showAIPanel, setShowAIPanel] = useState(false);
-  const [startDate, setStartDate] = useState(() => {
-    const date = new Date();
-    date.setDate(date.getDate() - 30);
-    return date.toISOString().split('T')[0];
-  });
-  const [endDate, setEndDate] = useState(() => {
-    return new Date().toISOString().split('T')[0];
-  });
+  const [startDate, setStartDate] = useState('2025-01-01');
+  const [endDate, setEndDate] = useState('2025-01-31');
   
   // Data states with proper types
   interface DashboardData {
@@ -343,6 +337,18 @@ const SalonDashboard = () => {
         <div className="flex items-center gap-2">
           <Calendar className="h-5 w-5 text-gray-500" />
           <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                setStartDate('2025-01-01');
+                setEndDate('2025-01-31');
+                setDateRangeLabel('January 2025');
+              }}
+              className={dateRangeLabel === 'January 2025' ? 'bg-blue-100' : ''}
+            >
+              January 2025
+            </Button>
             <Button 
               variant="outline" 
               size="sm"
