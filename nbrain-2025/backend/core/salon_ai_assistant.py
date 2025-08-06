@@ -75,64 +75,120 @@ class SalonAIAssistant:
             return await self.general_analytics_query(query)
     
     async def analyze_staff_prediction(self, query: str) -> Dict[str, Any]:
-        """Predict success/failure of newly hired stylists based on 4-6 weeks performance"""
+        """Analyze and predict staff success based on early performance"""
         db = SessionLocal()
         try:
-            # Get recent hires (within last 3 months)
-            three_months_ago = date.today() - timedelta(days=90)
-            recent_hires = db.query(SalonStaff).filter(
-                SalonStaff.hire_date >= three_months_ago
+            # Instead of looking for recent hires, analyze staff with recent transaction data
+            # Get staff with at least some transactions
+            staff_with_transactions = db.query(
+                SalonTransaction.staff_id,
+                SalonStaff.full_name,
+                func.count(SalonTransaction.id).label('transaction_count'),
+                func.sum(SalonTransaction.net_sales).label('total_sales'),
+                func.count(func.distinct(SalonTransaction.client_name)).label('unique_clients'),
+                func.min(SalonTransaction.sale_date).label('first_sale'),
+                func.max(SalonTransaction.sale_date).label('last_sale')
+            ).join(
+                SalonStaff, SalonTransaction.staff_id == SalonStaff.id
+            ).filter(
+                SalonTransaction.sale_date >= date(2025, 1, 1)
+            ).group_by(
+                SalonTransaction.staff_id,
+                SalonStaff.full_name
+            ).having(
+                func.count(SalonTransaction.id) >= 10  # At least 10 transactions
             ).all()
             
             predictions = []
-            for staff in recent_hires:
-                # Get their first 6 weeks of performance
-                six_weeks_after = staff.hire_date + timedelta(weeks=6)
-                performance = db.query(StaffPerformance).filter(
-                    and_(
-                        StaffPerformance.staff_id == staff.id,
-                        StaffPerformance.period_date <= six_weeks_after
-                    )
-                ).all()
+            
+            for staff in staff_with_transactions:
+                # Calculate weeks active
+                weeks_active = ((staff.last_sale - staff.first_sale).days / 7) + 1
                 
-                if len(performance) >= 4:  # At least 4 weeks of data
-                    # Calculate success metrics
-                    avg_sales = np.mean([p.net_sales for p in performance])
-                    avg_clients = np.mean([p.service_client_count for p in performance])
-                    avg_utilization = np.mean([p.utilization_percent for p in performance])
-                    growth_rate = (performance[-1].net_sales - performance[0].net_sales) / (performance[0].net_sales + 0.01)
+                # Calculate weekly averages
+                avg_weekly_sales = staff.total_sales / weeks_active if weeks_active > 0 else 0
+                avg_weekly_transactions = staff.transaction_count / weeks_active if weeks_active > 0 else 0
+                avg_weekly_clients = staff.unique_clients / weeks_active if weeks_active > 0 else 0
+                
+                # Calculate average ticket
+                avg_ticket = staff.total_sales / staff.transaction_count if staff.transaction_count > 0 else 0
+                
+                # Simple success prediction based on thresholds
+                success_factors = 0
+                if avg_weekly_sales > 2500: success_factors += 25
+                if avg_weekly_transactions > 15: success_factors += 25
+                if avg_weekly_clients > 10: success_factors += 25
+                if avg_ticket > 30: success_factors += 25
+                
+                # Determine trajectory (compare first half to second half if enough data)
+                trajectory = "Stable"
+                if staff.transaction_count >= 20:
+                    # Get first and second half performance
+                    midpoint = staff.first_sale + timedelta(days=((staff.last_sale - staff.first_sale).days / 2))
                     
-                    # Simple prediction model
-                    success_score = (
-                        (avg_utilization > 0.5) * 25 +
-                        (avg_sales > 3000) * 25 +
-                        (avg_clients > 20) * 25 +
-                        (growth_rate > 0.1) * 25
-                    )
+                    first_half = db.query(
+                        func.sum(SalonTransaction.net_sales).label('sales')
+                    ).filter(
+                        and_(
+                            SalonTransaction.staff_id == staff.staff_id,
+                            SalonTransaction.sale_date >= staff.first_sale,
+                            SalonTransaction.sale_date < midpoint
+                        )
+                    ).first()
                     
-                    predictions.append({
-                        "staff_name": staff.full_name,
-                        "weeks_analyzed": len(performance),
-                        "success_probability": success_score,
-                        "predicted_outcome": "Success" if success_score >= 50 else "At Risk",
-                        "key_metrics": {
-                            "avg_weekly_sales": avg_sales,
-                            "avg_weekly_clients": avg_clients,
-                            "avg_utilization": avg_utilization * 100,
-                            "growth_rate": growth_rate * 100
-                        }
-                    })
+                    second_half = db.query(
+                        func.sum(SalonTransaction.net_sales).label('sales')
+                    ).filter(
+                        and_(
+                            SalonTransaction.staff_id == staff.staff_id,
+                            SalonTransaction.sale_date >= midpoint,
+                            SalonTransaction.sale_date <= staff.last_sale
+                        )
+                    ).first()
+                    
+                    if first_half.sales and second_half.sales:
+                        growth = ((second_half.sales - first_half.sales) / first_half.sales) * 100
+                        if growth > 10:
+                            trajectory = "Growing"
+                        elif growth < -10:
+                            trajectory = "Declining"
+                
+                predictions.append({
+                    "staff_name": staff.full_name,
+                    "weeks_analyzed": round(weeks_active, 1),
+                    "success_probability": success_factors,
+                    "predicted_outcome": "High Performer" if success_factors >= 75 else "Good Performer" if success_factors >= 50 else "Needs Support",
+                    "trajectory": trajectory,
+                    "key_metrics": {
+                        "total_sales": round(staff.total_sales, 2),
+                        "avg_weekly_sales": round(avg_weekly_sales, 2),
+                        "avg_weekly_clients": round(avg_weekly_clients, 1),
+                        "avg_ticket": round(avg_ticket, 2),
+                        "total_transactions": staff.transaction_count
+                    }
+                })
+            
+            # Sort by success probability
+            predictions.sort(key=lambda x: x["success_probability"], reverse=True)
+            
+            # Take top 10 for detailed analysis
+            top_predictions = predictions[:10] if len(predictions) > 10 else predictions
             
             response = {
                 "query_type": "staff_prediction",
-                "response": f"Based on analysis of {len(predictions)} recent hires:",
+                "response": f"Based on January 2025 performance data for {len(predictions)} staff members:",
                 "data": {
-                    "predictions": predictions,
-                    "success_indicators": {
-                        "strong": "Utilization >50%, Sales >$3000/week, Clients >20/week, Growth >10%",
-                        "at_risk": "Below these thresholds in multiple areas"
+                    "predictions": top_predictions,
+                    "summary": {
+                        "high_performers": len([p for p in predictions if p["success_probability"] >= 75]),
+                        "good_performers": len([p for p in predictions if 50 <= p["success_probability"] < 75]),
+                        "needs_support": len([p for p in predictions if p["success_probability"] < 50])
                     },
-                    "recommendation": "Focus training and support on at-risk stylists in their weak areas"
+                    "success_indicators": {
+                        "high_performer": "Weekly Sales >$2500, Transactions >15/week, Clients >10/week, Avg Ticket >$30",
+                        "needs_support": "Below multiple thresholds - focus on training and mentorship"
+                    },
+                    "recommendation": "Monitor trajectory trends and provide additional support to declining performers"
                 }
             }
             
@@ -802,55 +858,88 @@ class SalonAIAssistant:
     
     async def general_analytics_query(self, query: str) -> Dict[str, Any]:
         """Handle general analytics queries using AI"""
-        if not self.gemini_model:
-            return {
-                "query_type": "general",
-                "response": "AI service temporarily unavailable",
-                "data": None
-            }
-        
-        # Get some context data
         db = SessionLocal()
         try:
+            # Get some context data for the AI
+            from sqlalchemy import func
+            
             # Get summary statistics
-            total_revenue = db.query(func.sum(SalonTransaction.net_sales)).scalar() or 0
-            total_transactions = db.query(func.count(SalonTransaction.id)).scalar() or 0
-            total_clients = db.query(func.count(func.distinct(SalonTransaction.client_name))).scalar() or 0
-            total_staff = db.query(func.count(SalonStaff.id)).scalar() or 0
+            total_revenue = db.query(func.sum(SalonTransaction.net_sales)).filter(
+                SalonTransaction.sale_date >= date(2025, 1, 1)
+            ).scalar() or 0
+            
+            total_transactions = db.query(func.count(SalonTransaction.id)).filter(
+                SalonTransaction.sale_date >= date(2025, 1, 1)
+            ).scalar() or 0
+            
+            unique_clients = db.query(func.count(func.distinct(SalonTransaction.client_name))).filter(
+                SalonTransaction.sale_date >= date(2025, 1, 1)
+            ).scalar() or 0
             
             context = f"""
-            Salon Analytics Context:
+            Current salon data (January 2025):
             - Total Revenue: ${total_revenue:,.2f}
             - Total Transactions: {total_transactions:,}
-            - Total Clients: {total_clients:,}
-            - Total Staff: {total_staff}
+            - Unique Clients: {unique_clients:,}
+            - Average Ticket: ${total_revenue/total_transactions:.2f} 
             
             User Query: {query}
-            
-            Please provide actionable insights and specific recommendations based on typical salon industry patterns.
             """
             
-            response = self.gemini_model.generate_content(context)
-            
-            return {
-                "query_type": "general",
-                "response": response.text,
-                "data": {
-                    "context_used": {
-                        "total_revenue": total_revenue,
-                        "total_transactions": total_transactions,
-                        "total_clients": total_clients,
-                        "total_staff": total_staff
+            # If Gemini is available, use it for analysis
+            if self.gemini_model:
+                try:
+                    prompt = f"""
+                    You are a salon business analytics expert. Based on the following data and query, 
+                    provide actionable insights and recommendations.
+                    
+                    {context}
+                    
+                    Provide a clear, structured response with:
+                    1. Direct answer to the query
+                    2. Key insights from the data
+                    3. Specific recommendations
+                    4. Metrics to track
+                    
+                    Format the response in a professional but conversational tone.
+                    """
+                    
+                    response = self.gemini_model.generate_content(prompt)
+                    
+                    return {
+                        "query_type": "general_analytics",
+                        "response": response.text if response.text else "Analysis complete",
+                        "data": {
+                            "context_used": {
+                                "total_revenue": total_revenue,
+                                "total_transactions": total_transactions,
+                                "unique_clients": unique_clients,
+                                "period": "January 2025"
+                            }
+                        }
                     }
+                except Exception as e:
+                    logger.error(f"Gemini API error: {str(e)}")
+                    # Fall back to basic response
+            
+            # Fallback response without Gemini
+            return {
+                "query_type": "general_analytics",
+                "response": f"Based on January 2025 data: We have ${total_revenue:,.2f} in revenue from {total_transactions:,} transactions across {unique_clients:,} unique clients.",
+                "data": {
+                    "total_revenue": total_revenue,
+                    "total_transactions": total_transactions,
+                    "unique_clients": unique_clients,
+                    "avg_ticket": total_revenue / total_transactions if total_transactions > 0 else 0,
+                    "period": "January 2025"
                 }
             }
             
         except Exception as e:
-            logger.error(f"Error in general query: {e}")
+            logger.error(f"Error in general analytics query: {str(e)}")
             return {
-                "query_type": "general",
-                "response": "Unable to process query at this time",
-                "data": None,
+                "query_type": "general_analytics",
+                "response": "I encountered an error analyzing your query. Please try rephrasing or contact support.",
                 "error": str(e)
             }
         finally:
