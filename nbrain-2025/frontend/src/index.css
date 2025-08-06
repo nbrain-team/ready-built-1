@@ -202,7 +202,8 @@ code {
 
 /* Content area - uses full remaining space */
 .content-area {
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
     position: relative;
     margin-left: var(--sidebar-width-collapsed);
     transition: margin-left 0.3s ease;

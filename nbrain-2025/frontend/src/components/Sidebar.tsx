@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
+import { MessageCircle } from 'lucide-react';
 
 export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
     const { hasPermission } = useAuth();
@@ -14,7 +15,7 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
 
     // Only keep the Chat item
     const navItems = [
-        { icon: '13.png', label: 'Chat', action: handleNewChatClick, isButton: true, permission: 'chat' },
+        { icon: MessageCircle, label: 'Chat', action: handleNewChatClick, isButton: true, permission: 'chat' },
     ];
 
     // Filter nav items based on permissions
@@ -28,17 +29,20 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
             onMouseEnter={() => setIsExpanded(true)}
             onMouseLeave={() => setIsExpanded(false)}
         >
-            <Link to="/start" className="sidebar-logo-placeholder">
-                <img src="/new-icons/1.png" alt="nBrain Logo" className="sidebar-logo-img" />
-            </Link>
+            <div className="sidebar-logo-placeholder">
+                <div className="text-2xl font-bold text-blue-600">nB</div>
+            </div>
             
             <div className="sidebar-nav-group">
-                {visibleNavItems.map((item, index) => (
-                    <button key={index} className="sidebar-nav-item" title={item.label} onClick={item.action}>
-                        <img src={`/new-icons/${item.icon}`} alt={item.label} />
-                        <span className="sidebar-nav-label">{item.label}</span>
-                    </button>
-                ))}
+                {visibleNavItems.map((item, index) => {
+                    const Icon = item.icon;
+                    return (
+                        <button key={index} className="sidebar-nav-item" title={item.label} onClick={item.action}>
+                            <Icon className="w-6 h-6" />
+                            <span className="sidebar-nav-label">{item.label}</span>
+                        </button>
+                    );
+                })}
             </div>
             
             <div style={{ flexGrow: 1 }}></div>
