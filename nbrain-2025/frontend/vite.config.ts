@@ -16,4 +16,13 @@ export default defineConfig({
   build: {
     sourcemap: false,
   },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://ready-built-1.onrender.com',
+        changeOrigin: true,
+        secure: false,
+      }
+    }
+  }
 })

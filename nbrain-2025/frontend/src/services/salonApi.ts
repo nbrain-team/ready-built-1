@@ -6,12 +6,34 @@ class SalonApi {
   private api: AxiosInstance;
 
   constructor() {
+    // Use the full URL path for the salon API
     this.api = axios.create({
-      baseURL: '/api/salon',
+      baseURL: `${API_BASE_URL}/api/salon`,
       headers: {
         'Content-Type': 'application/json',
       },
     });
+
+    // Add request interceptor for debugging
+    this.api.interceptors.request.use(
+      (config) => {
+        console.log('API Request:', config.method?.toUpperCase(), config.url);
+        return config;
+      },
+      (error) => {
+        console.error('API Request Error:', error);
+        return Promise.reject(error);
+      }
+    );
+
+    // Add response interceptor for error handling
+    this.api.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        console.error('API Response Error:', error.response?.status, error.response?.data);
+        return Promise.reject(error);
+      }
+    );
   }
 
   async getDashboardOverview(startDate?: string, endDate?: string) {
