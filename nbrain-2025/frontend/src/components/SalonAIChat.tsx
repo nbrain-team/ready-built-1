@@ -8,6 +8,7 @@ import {
   Calendar, Target, Activity, AlertCircle, Sparkles
 } from 'lucide-react';
 import { salonApi } from '@/services/salonApi';
+import ReactMarkdown from 'react-markdown';
 
 interface Message {
   id: string;
@@ -209,18 +210,44 @@ const SalonAIChat: React.FC = () => {
     );
   };
 
+  // Add a function to render markdown content
+  const renderMessageContent = (content: string, type: 'user' | 'assistant') => {
+    if (type === 'assistant') {
+      return (
+        <ReactMarkdown 
+          className="prose prose-sm max-w-none"
+          components={{
+            h1: ({children}) => <h1 className="text-lg font-bold mb-2">{children}</h1>,
+            h2: ({children}) => <h2 className="text-base font-semibold mb-2">{children}</h2>,
+            h3: ({children}) => <h3 className="text-sm font-semibold mb-1">{children}</h3>,
+            p: ({children}) => <p className="mb-2">{children}</p>,
+            ul: ({children}) => <ul className="list-disc pl-4 mb-2">{children}</ul>,
+            ol: ({children}) => <ol className="list-decimal pl-4 mb-2">{children}</ol>,
+            li: ({children}) => <li className="mb-1">{children}</li>,
+            strong: ({children}) => <strong className="font-semibold">{children}</strong>,
+            code: ({children}) => <code className="bg-gray-200 px-1 rounded text-sm">{children}</code>,
+            pre: ({children}) => <pre className="bg-gray-200 p-2 rounded overflow-x-auto mb-2">{children}</pre>,
+          }}
+        >
+          {content}
+        </ReactMarkdown>
+      );
+    }
+    return content;
+  };
+
   return (
-    <Card className="h-full flex flex-col overflow-hidden">
-      <CardHeader className="pb-3 flex-shrink-0">
-        <CardTitle className="flex items-center gap-2">
-          <Bot className="h-5 w-5" />
-          Salon AI Analytics Assistant
-        </CardTitle>
-      </CardHeader>
+    <div className="h-full flex flex-col bg-white rounded-lg shadow-sm">
+      <div className="px-4 py-3 border-b flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <Bot className="h-5 w-5 text-blue-500" />
+          <h3 className="font-semibold text-gray-900">Salon AI Analytics Assistant</h3>
+        </div>
+      </div>
       
-      <CardContent className="flex-1 flex flex-col p-4 overflow-hidden min-h-0">
+      <div className="flex-1 flex flex-col p-4 min-h-0 overflow-hidden">
         {/* Sample Questions */}
-        <div className="mb-4 flex-shrink-0">
+        <div className="mb-3 flex-shrink-0">
           <p className="text-xs text-gray-600 mb-2">Try asking:</p>
           <div className="flex flex-wrap gap-2">
             {SAMPLE_QUESTIONS.slice(0, 3).map((question, idx) => (
@@ -237,59 +264,61 @@ const SalonAIChat: React.FC = () => {
           </div>
         </div>
 
-        {/* Messages - Fixed height with scroll */}
-        <div className="flex-1 overflow-y-auto space-y-4 mb-4 min-h-0 max-h-full pr-2">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div className={`max-w-[80%] ${message.type === 'user' ? 'order-2' : 'order-1'}`}>
-                <div className="flex items-start gap-2">
-                  {message.type === 'assistant' && (
-                    <Bot className="h-6 w-6 text-blue-500 mt-1 flex-shrink-0" />
-                  )}
-                  <div className="min-w-0">
-                    <div
-                      className={`p-3 rounded-lg ${
-                        message.type === 'user'
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-100 text-gray-900'
-                      }`}
-                    >
-                      {message.content}
+        {/* Messages Container - Properly constrained */}
+        <div className="flex-1 overflow-y-auto mb-3 min-h-0">
+          <div className="space-y-4 pb-2">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div className={`max-w-[80%] ${message.type === 'user' ? 'order-2' : 'order-1'}`}>
+                  <div className="flex items-start gap-2">
+                    {message.type === 'assistant' && (
+                      <Bot className="h-6 w-6 text-blue-500 mt-1 flex-shrink-0" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div
+                        className={`p-3 rounded-lg ${
+                          message.type === 'user'
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-gray-100 text-gray-900'
+                        }`}
+                      >
+                        {renderMessageContent(message.content, message.type)}
+                      </div>
+                      {message.data && renderData(message.data)}
+                      <div className="text-xs text-gray-500 mt-1">
+                        {message.timestamp.toLocaleTimeString()}
+                      </div>
                     </div>
-                    {message.data && renderData(message.data)}
-                    <div className="text-xs text-gray-500 mt-1">
-                      {message.timestamp.toLocaleTimeString()}
-                    </div>
-                  </div>
-                  {message.type === 'user' && (
-                    <User className="h-6 w-6 text-gray-500 mt-1 flex-shrink-0" />
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-          {loading && (
-            <div className="flex justify-start">
-              <div className="flex items-center gap-2">
-                <Bot className="h-6 w-6 text-blue-500" />
-                <div className="bg-gray-100 p-3 rounded-lg">
-                  <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                    {message.type === 'user' && (
+                      <User className="h-6 w-6 text-gray-500 mt-1 flex-shrink-0" />
+                    )}
                   </div>
                 </div>
               </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
+            ))}
+            {loading && (
+              <div className="flex justify-start">
+                <div className="flex items-center gap-2">
+                  <Bot className="h-6 w-6 text-blue-500" />
+                  <div className="bg-gray-100 p-3 rounded-lg">
+                    <div className="flex gap-1">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
         </div>
 
         {/* Input - Fixed at bottom */}
-        <div className="flex gap-2 flex-shrink-0">
+        <div className="flex gap-2 flex-shrink-0 pt-2 border-t">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -298,12 +327,12 @@ const SalonAIChat: React.FC = () => {
             disabled={loading}
             className="flex-1"
           />
-          <Button onClick={handleSend} disabled={loading || !input.trim()}>
+          <Button onClick={handleSend} disabled={loading || !input.trim()} size="sm">
             <Send className="h-4 w-4" />
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 
