@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { 
   TrendingUp, Users, DollarSign, ShoppingCart, Clock, 
   Calendar, Search, Download, Filter, ChevronDown,
-  Activity, UserCheck, Package, Star, Target, AlertCircle
+  Activity, UserCheck, Package, Star, Target, AlertCircle, Sparkles
 } from 'lucide-react';
 import { salonApi } from '@/services/salonApi';
 import SalonAIChat from './SalonAIChat';
@@ -25,6 +25,7 @@ const SalonDashboard = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedMetric, setSelectedMetric] = useState('revenue');
   const [dateRangeLabel, setDateRangeLabel] = useState('Last 30 days');
+  const [showAIPanel, setShowAIPanel] = useState(false);
   const [startDate, setStartDate] = useState(() => {
     const date = new Date();
     date.setDate(date.getDate() - 30);
@@ -282,7 +283,55 @@ const SalonDashboard = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 relative">
+      {/* Floating AI Assistant Button */}
+      <Button
+        onClick={() => setShowAIPanel(true)}
+        className="fixed top-20 right-6 z-40 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg rounded-full p-4"
+      >
+        <Sparkles className="h-5 w-5 mr-2" />
+        AI Assistant
+      </Button>
+
+      {/* AI Assistant Slide-out Panel */}
+      {showAIPanel && (
+        <>
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 z-40"
+            onClick={() => setShowAIPanel(false)}
+          />
+          
+          {/* Panel */}
+          <div className={`fixed top-0 right-0 h-full w-full md:w-2/3 lg:w-1/2 bg-white shadow-2xl z-50 transform transition-transform duration-300 ${
+            showAIPanel ? 'translate-x-0' : 'translate-x-full'
+          }`}>
+            <div className="h-full flex flex-col">
+              {/* Panel Header */}
+              <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-purple-600 to-pink-600 text-white">
+                <div className="flex items-center">
+                  <Sparkles className="h-6 w-6 mr-2" />
+                  <h2 className="text-xl font-bold">AI Analytics Assistant</h2>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAIPanel(false)}
+                  className="text-white hover:bg-white/20"
+                >
+                  ✕
+                </Button>
+              </div>
+              
+              {/* Chat Component */}
+              <div className="flex-1 overflow-hidden">
+                <SalonAIChat />
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Header with Date Range Selector */}
       <div className="flex justify-between items-center">
         <div>
@@ -424,15 +473,20 @@ const SalonDashboard = () => {
 
       {/* Rest of the dashboard tabs */}
       <Tabs defaultValue="performance">
-        <TabsList>
-          <TabsTrigger value="performance">Performance</TabsTrigger>
-          <TabsTrigger value="staff">Staff</TabsTrigger>
-          <TabsTrigger value="services">Services</TabsTrigger>
-          <TabsTrigger value="clients">Clients</TabsTrigger>
-          <TabsTrigger value="transactions">Transactions</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          <TabsTrigger value="ai-assistant">AI Assistant</TabsTrigger>
-        </TabsList>
+        <div className="w-full overflow-x-auto mb-4 border-b">
+          <TabsList>
+            <TabsTrigger value="performance">Performance</TabsTrigger>
+            <TabsTrigger value="staff">Staff</TabsTrigger>
+            <TabsTrigger value="services">Services</TabsTrigger>
+            <TabsTrigger value="clients">Clients</TabsTrigger>
+            <TabsTrigger value="transactions">Transactions</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+            <TabsTrigger value="ai-assistant">
+              <Sparkles className="w-4 h-4 mr-2" />
+              AI Assistant
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="performance" className="space-y-4">
           <Card>
