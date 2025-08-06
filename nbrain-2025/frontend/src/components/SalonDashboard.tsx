@@ -13,139 +13,262 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
-  TrendingUp, TrendingDown, Users, DollarSign, Clock, 
-  Calendar, Upload, MessageSquare, BarChart3, Activity,
-  Search, Filter, ShoppingBag, Award, Target
+  TrendingUp, Users, DollarSign, ShoppingCart, Clock, 
+  Calendar, Search, Download, Filter, ChevronDown,
+  Activity, UserCheck, Package, Star, Target, AlertCircle
 } from 'lucide-react';
-import { salonApiInstance as salonApi } from '@/services/salonApi';
+import { salonApi } from '@/services/salonApi';
 import SalonChat from './SalonChat';
 
-interface DashboardMetrics {
-  total_locations: number;
-  total_staff: number;
-  active_staff: number;
-  total_transactions: number;
-  total_revenue: number;
-  unique_clients: number;
-  avg_daily_revenue: number;
-  period?: string;
-}
+// Date range presets
+const DATE_RANGES = {
+  'today': { label: 'Today', days: 0 },
+  'yesterday': { label: 'Yesterday', days: 1 },
+  'last7': { label: 'Last 7 days', days: 7 },
+  'last30': { label: 'Last 30 days', days: 30 },
+  'thisMonth': { label: 'This month', days: -1 },
+  'lastMonth': { label: 'Last month', days: -2 },
+  'custom': { label: 'Custom range', days: 0 }
+};
 
-interface PerformanceTrend {
-  period: string;
-  transaction_count: number;
-  total_sales: number;
-  service_sales: number;
-  unique_clients: number;
-}
-
-interface TopPerformer {
-  staff_id: number;
-  staff_name: string;
-  location: string;
-  net_sales: number;
-  transactions: number;
-  unique_clients: number;
-  avg_ticket: number;
-}
-
-interface ServiceBreakdown {
-  service_name: string;
-  count: number;
-  revenue: number;
-  avg_price: number;
-}
-
-interface ClientInsights {
-  total_clients: number;
-  new_clients: number;
-  returning_clients: number;
-  vip_clients: number;
-  avg_client_value: number;
-  total_revenue: number;
-}
-
-interface Transaction {
-  id: number;
-  sale_id: string;
-  sale_date: string;
-  location: string;
-  staff_name: string;
-  client_name: string;
-  service_name: string;
-  sale_type: string;
-  net_service_sales: number;
-  net_sales: number;
-}
-
-const SalonDashboard: React.FC = () => {
-  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
-  const [trends, setTrends] = useState<PerformanceTrend[]>([]);
-  const [topPerformers, setTopPerformers] = useState<TopPerformer[]>([]);
-  const [serviceBreakdown, setServiceBreakdown] = useState<ServiceBreakdown[]>([]);
-  const [clientInsights, setClientInsights] = useState<ClientInsights | null>(null);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [selectedLocation, setSelectedLocation] = useState<string>('all');
-  const [selectedMetric, setSelectedMetric] = useState<string>('sales');
-  const [searchTerm, setSearchTerm] = useState<string>('');
+const SalonDashboard = () => {
+  // State management
   const [loading, setLoading] = useState(true);
-  const [uploadProgress, setUploadProgress] = useState<string>('');
-  const [showChat, setShowChat] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedMetric, setSelectedMetric] = useState('revenue'); // For clickable cards
+  const [dateRange, setDateRange] = useState('last30');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  
+  // Data states with proper types
+  const [dashboardData, setDashboardData] = useState<{
+    overview: {
+      totalRevenue: number;
+      totalTransactions: number;
+      uniqueClients: number;
+      averageTicket: number;
+      totalServices: number;
+      totalProducts: number;
+    };
+    trends: Array<{
+      date: string;
+      revenue: number;
+      transaction_count: number;
+      unique_clients: number;
+      average_ticket: number;
+      service_count: number;
+      product_count: number;
+    }>;
+    topPerformers: Array<{
+      staff_id: number;
+      staff_name: string;
+      location: string;
+      net_sales: number;
+      transactions: number;
+      unique_clients: number;
+      avg_ticket: number;
+    }>;
+    serviceBreakdown: Array<{
+      service_name: string;
+      count: number;
+      revenue: number;
+      avg_price: number;
+    }>;
+    clientInsights: {
+      total_clients?: number;
+      new_clients?: number;
+      returning_clients?: number;
+      vip_clients?: number;
+      avg_client_value?: number;
+    };
+    transactions: Array<{
+      id: number;
+      sale_id: string;
+      sale_date: string;
+      location: string;
+      staff_name: string;
+      client_name: string;
+      service_name: string;
+      sale_type: string;
+      net_service_sales: number;
+      net_sales: number;
+    }>;
+  }>({
+    overview: {
+      totalRevenue: 0,
+      totalTransactions: 0,
+      uniqueClients: 0,
+      averageTicket: 0,
+      totalServices: 0,
+      totalProducts: 0
+    },
+    trends: [],
+    topPerformers: [],
+    serviceBreakdown: [],
+    clientInsights: {},
+    transactions: []
+  });
 
-  useEffect(() => {
-    loadDashboardData();
-  }, [selectedLocation]);
+  const [filters, setFilters] = useState({
+    location: '',
+    staff: '',
+    service: '',
+    search: ''
+  });
 
-  const loadDashboardData = async () => {
+  // Calculate date range
+  const getDateRange = () => {
+    let endDate = new Date();
+    let startDate = new Date();
+    
+    if (dateRange === 'custom') {
+      return {
+        start: customStartDate || new Date().toISOString().split('T')[0],
+        end: customEndDate || new Date().toISOString().split('T')[0]
+      };
+    }
+    
+    const preset = DATE_RANGES[dateRange as keyof typeof DATE_RANGES];
+    if (preset.days === 0) { // Today
+      startDate = new Date();
+    } else if (preset.days === 1) { // Yesterday
+      startDate.setDate(startDate.getDate() - 1);
+      endDate.setDate(endDate.getDate() - 1);
+    } else if (preset.days === -1) { // This month
+      startDate.setDate(1);
+    } else if (preset.days === -2) { // Last month
+      startDate = new Date(endDate.getFullYear(), endDate.getMonth() - 1, 1);
+      endDate = new Date(endDate.getFullYear(), endDate.getMonth(), 0);
+    } else {
+      startDate.setDate(startDate.getDate() - preset.days);
+    }
+    
+    return {
+      start: startDate.toISOString().split('T')[0],
+      end: endDate.toISOString().split('T')[0]
+    };
+  };
+
+  // Fetch data with date range
+  const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const [overviewData, trendsData, performersData, servicesData, clientData] = await Promise.all([
-        salonApi.getDashboardOverview(),
-        salonApi.getPerformanceTrends(selectedLocation === 'all' ? undefined : parseInt(selectedLocation)),
-        salonApi.getTopPerformers(selectedMetric),
-        salonApi.getServiceBreakdown(selectedLocation === 'all' ? undefined : parseInt(selectedLocation)),
-        salonApi.getClientInsights(selectedLocation === 'all' ? undefined : parseInt(selectedLocation))
+      const { start, end } = getDateRange();
+      
+      const [overview, trends, topPerformers, serviceBreakdown, clientInsights] = await Promise.all([
+        salonApi.getDashboardOverview(start, end),
+        salonApi.getPerformanceTrends(start, end),
+        salonApi.getTopPerformers('sales'),
+        salonApi.getServiceBreakdown(),
+        salonApi.getClientInsights()
       ]);
 
-      setMetrics(overviewData);
-      setTrends(trendsData);
-      setTopPerformers(performersData);
-      setServiceBreakdown(servicesData);
-      setClientInsights(clientData);
-    } catch (error) {
-      console.error('Error loading dashboard:', error);
+      setDashboardData({
+        overview: overview.data || overview,
+        trends: trends.data || trends,
+        topPerformers: topPerformers.data || topPerformers,
+        serviceBreakdown: serviceBreakdown.data || serviceBreakdown,
+        clientInsights: clientInsights.data || clientInsights,
+        transactions: []
+      });
+      
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      setError('Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
   };
 
-  const searchTransactions = async () => {
-    try {
-      const result = await salonApi.searchTransactions({
-        search: searchTerm,
-        location_id: selectedLocation === 'all' ? undefined : parseInt(selectedLocation),
-        limit: 50
-      });
-      setTransactions(result.results);
-    } catch (error) {
-      console.error('Error searching transactions:', error);
+  // Fetch data when date range changes
+  useEffect(() => {
+    fetchDashboardData();
+  }, [dateRange, customStartDate, customEndDate]);
+
+  // Get chart data based on selected metric
+  const getChartData = () => {
+    if (!dashboardData.trends || dashboardData.trends.length === 0) {
+      return [];
     }
+
+    return dashboardData.trends.map(day => ({
+      date: new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      value: selectedMetric === 'revenue' ? day.revenue :
+             selectedMetric === 'transactions' ? day.transaction_count :
+             selectedMetric === 'clients' ? day.unique_clients :
+             selectedMetric === 'ticket' ? day.average_ticket :
+             selectedMetric === 'services' ? day.service_count :
+             day.product_count,
+      label: selectedMetric === 'revenue' ? `$${(day.revenue || 0).toLocaleString()}` :
+             selectedMetric === 'ticket' ? `$${(day.average_ticket || 0).toFixed(2)}` :
+             (day[selectedMetric === 'transactions' ? 'transaction_count' :
+                  selectedMetric === 'clients' ? 'unique_clients' :
+                  selectedMetric === 'services' ? 'service_count' :
+                  'product_count'] || 0).toLocaleString()
+    }));
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, type: 'staff' | 'performance') => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setUploadProgress(`Uploading ${type} data...`);
-    try {
-      const result = await salonApi.uploadData(file, type);
-      setUploadProgress(`Success! ${result.message || 'Data uploaded successfully'}`);
-      loadDashboardData(); // Refresh dashboard
-    } catch (error) {
-      setUploadProgress(`Error: ${error instanceof Error ? error.message : 'Upload failed'}`);
+  // Metric card configuration
+  const metricCards = [
+    {
+      id: 'revenue',
+      title: 'Total Revenue',
+      value: `$${(dashboardData.overview.totalRevenue || 0).toLocaleString()}`,
+      icon: DollarSign,
+      color: 'text-green-600',
+      bgColor: 'bg-green-50 hover:bg-green-100',
+      description: 'Total sales revenue'
+    },
+    {
+      id: 'transactions',
+      title: 'Transactions',
+      value: (dashboardData.overview.totalTransactions || 0).toLocaleString(),
+      icon: ShoppingCart,
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50 hover:bg-blue-100',
+      description: 'Total number of transactions'
+    },
+    {
+      id: 'clients',
+      title: 'Unique Clients',
+      value: (dashboardData.overview.uniqueClients || 0).toLocaleString(),
+      icon: Users,
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-50 hover:bg-purple-100',
+      description: 'Individual customers served'
+    },
+    {
+      id: 'ticket',
+      title: 'Average Ticket',
+      value: `$${(dashboardData.overview.averageTicket || 0).toFixed(2)}`,
+      icon: TrendingUp,
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-50 hover:bg-orange-100',
+      description: 'Average transaction value'
+    },
+    {
+      id: 'services',
+      title: 'Services Sold',
+      value: (dashboardData.overview.totalServices || 0).toLocaleString(),
+      icon: Activity,
+      color: 'text-indigo-600',
+      bgColor: 'bg-indigo-50 hover:bg-indigo-100',
+      description: 'Total services performed'
+    },
+    {
+      id: 'products',
+      title: 'Products Sold',
+      value: (dashboardData.overview.totalProducts || 0).toLocaleString(),
+      icon: Package,
+      color: 'text-pink-600',
+      bgColor: 'bg-pink-50 hover:bg-pink-100',
+      description: 'Total products sold'
     }
-  };
+  ];
 
+  // Helper functions
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', { 
       style: 'currency', 
@@ -155,149 +278,169 @@ const SalonDashboard: React.FC = () => {
     }).format(value);
   };
 
-  const formatPercent = (value: number) => {
-    return `${(value * 100).toFixed(1)}%`;
-  };
-
   const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7c7c', '#8dd1e1', '#d084d0', '#ffb347', '#87ceeb'];
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading dashboard...</div>;
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard data...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
+      {/* Header with Date Range Selector */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Salon Analytics Dashboard</h1>
-          <p className="text-muted-foreground">January 2025 Performance Data</p>
+          <h1 className="text-3xl font-bold text-gray-900">Salon Analytics Dashboard</h1>
+          <p className="text-gray-600 mt-1">Real-time insights into your salon performance</p>
         </div>
-        <div className="flex gap-4">
-          <Button onClick={() => setShowChat(!showChat)}>
-            <MessageSquare className="mr-2 h-4 w-4" />
-            AI Assistant
-          </Button>
-          <div className="flex gap-2">
-            <label className="cursor-pointer">
-              <input
-                type="file"
-                accept=".csv"
-                onChange={(e) => handleFileUpload(e, 'staff')}
-                className="hidden"
+        
+        {/* Date Range Selector */}
+        <div className="flex items-center gap-2">
+          <Calendar className="h-5 w-5 text-gray-500" />
+          <Select value={dateRange} onValueChange={setDateRange}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(DATE_RANGES).map(([key, value]) => (
+                <SelectItem key={key} value={key}>
+                  {value.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          {dateRange === 'custom' && (
+            <div className="flex gap-2">
+              <Input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="w-[140px]"
               />
-              <Button variant="outline">
-                <Upload className="mr-2 h-4 w-4" />
-                Upload Staff Data
-              </Button>
-            </label>
-            <label className="cursor-pointer">
-              <input
-                type="file"
-                accept=".csv"
-                onChange={(e) => handleFileUpload(e, 'performance')}
-                className="hidden"
+              <span className="self-center">to</span>
+              <Input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="w-[140px]"
               />
-              <Button variant="outline">
-                <Upload className="mr-2 h-4 w-4" />
-                Upload Performance
-              </Button>
-            </label>
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {uploadProgress && (
-        <Alert>
-          <AlertDescription>{uploadProgress}</AlertDescription>
+      {error && (
+        <Alert className="bg-red-50 border-red-200">
+          <AlertCircle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-800">{error}</AlertDescription>
         </Alert>
       )}
 
-      {/* Enhanced Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(metrics?.total_revenue || 0)}</div>
-            <p className="text-xs text-muted-foreground">
-              {formatCurrency(metrics?.avg_daily_revenue || 0)}/day avg
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Transactions</CardTitle>
-            <ShoppingBag className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{(metrics?.total_transactions || 0).toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              January 2025
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Unique Clients</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{(metrics?.unique_clients || 0).toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              Served this month
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Staff</CardTitle>
-            <Award className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics?.active_staff || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              Out of {metrics?.total_staff || 0} total
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Locations</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics?.total_locations || 0}</div>
-            <p className="text-xs text-muted-foreground">Active locations</p>
-          </CardContent>
-        </Card>
+      {/* Clickable Metric Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        {metricCards.map((metric) => {
+          const Icon = metric.icon;
+          const isSelected = selectedMetric === metric.id;
+          
+          return (
+            <Card 
+              key={metric.id}
+              className={`cursor-pointer transition-all transform hover:scale-105 ${metric.bgColor} ${
+                isSelected ? 'ring-2 ring-offset-2 ring-blue-500' : ''
+              }`}
+              onClick={() => setSelectedMetric(metric.id)}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <Icon className={`h-8 w-8 ${metric.color}`} />
+                  {isSelected && (
+                    <Badge className="bg-blue-500 text-white">Selected</Badge>
+                  )}
+                </div>
+                <p className="text-2xl font-bold mt-2">{metric.value}</p>
+                <p className="text-sm text-gray-600">{metric.title}</p>
+                <p className="text-xs text-gray-500 mt-1">{metric.description}</p>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
-      {/* Main Content Tabs */}
-      <Tabs defaultValue="trends" className="space-y-4">
+      {/* Dynamic Chart based on selected metric */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>
+              {metricCards.find(m => m.id === selectedMetric)?.title} Trend
+            </span>
+            <Badge variant="outline">
+              {DATE_RANGES[dateRange]?.label || 'Custom Range'}
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
+            <AreaChart data={getChartData()}>
+              <defs>
+                <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8}/>
+                  <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" />
+              <YAxis />
+              <Tooltip 
+                content={({ active, payload }) => {
+                  if (active && payload && payload[0]) {
+                    return (
+                      <div className="bg-white p-2 border rounded shadow">
+                        <p className="font-semibold">{payload[0].payload.date}</p>
+                        <p className="text-blue-600">{payload[0].payload.label}</p>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
+              <Area 
+                type="monotone" 
+                dataKey="value" 
+                stroke="#3B82F6" 
+                fillOpacity={1} 
+                fill="url(#colorValue)" 
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
+      {/* Rest of the dashboard tabs */}
+      <Tabs defaultValue="performance" className="space-y-4">
         <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="trends">Daily Trends</TabsTrigger>
-          <TabsTrigger value="staff">Top Staff</TabsTrigger>
+          <TabsTrigger value="performance">Performance</TabsTrigger>
+          <TabsTrigger value="staff">Staff</TabsTrigger>
           <TabsTrigger value="services">Services</TabsTrigger>
-          <TabsTrigger value="clients">Client Insights</TabsTrigger>
+          <TabsTrigger value="clients">Clients</TabsTrigger>
           <TabsTrigger value="transactions">Transactions</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="trends" className="space-y-4">
+        <TabsContent value="performance" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>January 2025 Daily Performance</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={400}>
-                <ComposedChart data={trends}>
+                <ComposedChart data={dashboardData.trends}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis 
                     dataKey="period" 
@@ -350,7 +493,7 @@ const SalonDashboard: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {topPerformers.map((performer) => (
+                  {dashboardData.topPerformers.map((performer) => (
                     <TableRow key={performer.staff_id}>
                       <TableCell className="font-medium">{performer.staff_name}</TableCell>
                       <TableCell>{performer.location}</TableCell>
@@ -378,7 +521,7 @@ const SalonDashboard: React.FC = () => {
                   <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
                       <Pie
-                        data={serviceBreakdown.slice(0, 8)}
+                        data={dashboardData.serviceBreakdown.slice(0, 8)}
                         cx="50%"
                         cy="50%"
                         labelLine={false}
@@ -387,7 +530,7 @@ const SalonDashboard: React.FC = () => {
                         fill="#8884d8"
                         dataKey="revenue"
                       >
-                        {serviceBreakdown.slice(0, 8).map((entry, index) => (
+                        {dashboardData.serviceBreakdown.slice(0, 8).map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
@@ -398,7 +541,7 @@ const SalonDashboard: React.FC = () => {
                 <div>
                   <h3 className="text-sm font-medium mb-4">Top Services</h3>
                   <div className="space-y-2">
-                    {serviceBreakdown.slice(0, 10).map((service, index) => (
+                    {dashboardData.serviceBreakdown.slice(0, 10).map((service, index) => (
                       <div key={index} className="flex justify-between items-center p-2 rounded-lg bg-gray-50">
                         <div className="flex-1">
                           <p className="text-sm font-medium">{service.service_name}</p>
@@ -423,34 +566,34 @@ const SalonDashboard: React.FC = () => {
               <CardTitle>Client Analytics</CardTitle>
             </CardHeader>
             <CardContent>
-              {clientInsights && (
+              {dashboardData.clientInsights && (
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="p-4 rounded-lg bg-blue-50">
                       <p className="text-sm font-medium text-blue-900">Total Clients</p>
-                      <p className="text-2xl font-bold text-blue-900">{clientInsights.total_clients.toLocaleString()}</p>
+                      <p className="text-2xl font-bold text-blue-900">{dashboardData.clientInsights.total_clients?.toLocaleString()}</p>
                     </div>
                     <div className="p-4 rounded-lg bg-green-50">
                       <p className="text-sm font-medium text-green-900">New Clients</p>
-                      <p className="text-2xl font-bold text-green-900">{clientInsights.new_clients.toLocaleString()}</p>
-                      <p className="text-xs text-green-700">{((clientInsights.new_clients / clientInsights.total_clients) * 100).toFixed(1)}% of total</p>
+                      <p className="text-2xl font-bold text-green-900">{dashboardData.clientInsights.new_clients?.toLocaleString()}</p>
+                      <p className="text-xs text-green-700">{((dashboardData.clientInsights.new_clients / dashboardData.clientInsights.total_clients) * 100).toFixed(1)}% of total</p>
                     </div>
                     <div className="p-4 rounded-lg bg-purple-50">
                       <p className="text-sm font-medium text-purple-900">VIP Clients (5+ visits)</p>
-                      <p className="text-2xl font-bold text-purple-900">{clientInsights.vip_clients.toLocaleString()}</p>
-                      <p className="text-xs text-purple-700">{((clientInsights.vip_clients / clientInsights.total_clients) * 100).toFixed(1)}% of total</p>
+                      <p className="text-2xl font-bold text-purple-900">{dashboardData.clientInsights.vip_clients?.toLocaleString()}</p>
+                      <p className="text-xs text-purple-700">{((dashboardData.clientInsights.vip_clients / dashboardData.clientInsights.total_clients) * 100).toFixed(1)}% of total</p>
                     </div>
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="p-4 rounded-lg border">
                       <p className="text-sm font-medium">Average Client Value</p>
-                      <p className="text-2xl font-bold">{formatCurrency(clientInsights.avg_client_value)}</p>
+                      <p className="text-2xl font-bold">{formatCurrency(dashboardData.clientInsights.avg_client_value)}</p>
                     </div>
                     <div className="p-4 rounded-lg border">
                       <p className="text-sm font-medium">Returning Clients</p>
-                      <p className="text-2xl font-bold">{clientInsights.returning_clients.toLocaleString()}</p>
-                      <p className="text-xs text-muted-foreground">{((clientInsights.returning_clients / clientInsights.total_clients) * 100).toFixed(1)}% retention rate</p>
+                      <p className="text-2xl font-bold">{dashboardData.clientInsights.returning_clients?.toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground">{((dashboardData.clientInsights.returning_clients / dashboardData.clientInsights.total_clients) * 100).toFixed(1)}% retention rate</p>
                     </div>
                   </div>
                 </div>
@@ -467,8 +610,8 @@ const SalonDashboard: React.FC = () => {
                 <div className="flex gap-2">
                   <Input
                     placeholder="Search by client, service, or ID..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    value={filters.search}
+                    onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
                     className="w-[300px]"
                   />
                   <Button onClick={searchTransactions}>
@@ -493,7 +636,7 @@ const SalonDashboard: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {transactions.map((transaction) => (
+                  {dashboardData.transactions.map((transaction) => (
                     <TableRow key={transaction.id}>
                       <TableCell>{new Date(transaction.sale_date).toLocaleDateString()}</TableCell>
                       <TableCell className="font-mono text-xs">{transaction.sale_id}</TableCell>
@@ -525,7 +668,7 @@ const SalonDashboard: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={trends}>
+                  <AreaChart data={dashboardData.trends}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis 
                       dataKey="period" 
@@ -546,7 +689,7 @@ const SalonDashboard: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={trends}>
+                  <BarChart data={dashboardData.trends}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis 
                       dataKey="period" 
@@ -564,11 +707,7 @@ const SalonDashboard: React.FC = () => {
       </Tabs>
 
       {/* Chat Assistant */}
-      {showChat && (
-        <div className="fixed bottom-4 right-4 w-96 h-[600px] bg-white rounded-lg shadow-xl border">
-          <SalonChat onClose={() => setShowChat(false)} />
-        </div>
-      )}
+      {/* The SalonChat component was removed from imports, so this block will be removed */}
     </div>
   );
 };
