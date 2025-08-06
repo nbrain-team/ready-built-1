@@ -210,17 +210,17 @@ const SalonAIChat: React.FC = () => {
   };
 
   return (
-    <Card className="h-full flex flex-col">
-      <CardHeader className="pb-3">
+    <Card className="h-full flex flex-col overflow-hidden">
+      <CardHeader className="pb-3 flex-shrink-0">
         <CardTitle className="flex items-center gap-2">
           <Bot className="h-5 w-5" />
           Salon AI Analytics Assistant
         </CardTitle>
       </CardHeader>
       
-      <CardContent className="flex-1 flex flex-col p-4">
+      <CardContent className="flex-1 flex flex-col p-4 overflow-hidden min-h-0">
         {/* Sample Questions */}
-        <div className="mb-4">
+        <div className="mb-4 flex-shrink-0">
           <p className="text-xs text-gray-600 mb-2">Try asking:</p>
           <div className="flex flex-wrap gap-2">
             {SAMPLE_QUESTIONS.slice(0, 3).map((question, idx) => (
@@ -237,8 +237,8 @@ const SalonAIChat: React.FC = () => {
           </div>
         </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto space-y-4 mb-4">
+        {/* Messages - Fixed height with scroll */}
+        <div className="flex-1 overflow-y-auto space-y-4 mb-4 min-h-0 max-h-full pr-2">
           {messages.map((message) => (
             <div
               key={message.id}
@@ -247,9 +247,9 @@ const SalonAIChat: React.FC = () => {
               <div className={`max-w-[80%] ${message.type === 'user' ? 'order-2' : 'order-1'}`}>
                 <div className="flex items-start gap-2">
                   {message.type === 'assistant' && (
-                    <Bot className="h-6 w-6 text-blue-500 mt-1" />
+                    <Bot className="h-6 w-6 text-blue-500 mt-1 flex-shrink-0" />
                   )}
-                  <div>
+                  <div className="min-w-0">
                     <div
                       className={`p-3 rounded-lg ${
                         message.type === 'user'
@@ -265,7 +265,7 @@ const SalonAIChat: React.FC = () => {
                     </div>
                   </div>
                   {message.type === 'user' && (
-                    <User className="h-6 w-6 text-gray-500 mt-1" />
+                    <User className="h-6 w-6 text-gray-500 mt-1 flex-shrink-0" />
                   )}
                 </div>
               </div>
@@ -288,8 +288,8 @@ const SalonAIChat: React.FC = () => {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input */}
-        <div className="flex gap-2">
+        {/* Input - Fixed at bottom */}
+        <div className="flex gap-2 flex-shrink-0">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
