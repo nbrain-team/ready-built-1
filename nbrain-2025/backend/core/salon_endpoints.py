@@ -9,7 +9,8 @@ from .database import SessionLocal, get_db, User
 from .salon_handler import SalonAnalyticsHandler
 from .salon_models import (
     SalonLocation, SalonStaff, StaffPerformance, 
-    SalonClient, SalonAppointment, StaffPrediction
+    SalonClient, SalonAppointment, StaffPrediction,
+    SalonTransaction  # Added this import
 )
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
@@ -241,54 +242,54 @@ async def get_dashboard_overview(
     # Temporarily removed for demo: current_user: dict = Depends(get_current_active_user)
 ):
     """Get overview data for dashboard"""
-    # Get latest performance date
-    latest_perf = db.query(func.max(StaffPerformance.period_date)).scalar()
+    from sqlalchemy import and_
+    from datetime import datetime, timedelta
     
-    if not latest_perf:
-        return {
-            "total_locations": 0,
-            "total_staff": 0,
-            "active_staff": 0,
-            "avg_utilization": 0,
-            "total_revenue": 0,
-            "new_clients": 0
-        }
+    # Get January 2025 data from salon_transactions
+    start_date = date(2025, 1, 1)
+    end_date = date(2025, 1, 31)
     
-    # Get current month data
-    current_data = db.query(StaffPerformance).filter(
-        StaffPerformance.period_date == latest_perf
-    ).all()
+    # Get transaction-based metrics
+    total_transactions = db.query(func.count(SalonTransaction.id)).filter(
+        and_(
+            SalonTransaction.sale_date >= start_date,
+            SalonTransaction.sale_date <= end_date
+        )
+    ).scalar() or 0
     
-    # Calculate metrics
-    total_locations = db.query(SalonLocation).count()
+    total_revenue = db.query(func.sum(SalonTransaction.net_sales)).filter(
+        and_(
+            SalonTransaction.sale_date >= start_date,
+            SalonTransaction.sale_date <= end_date
+        )
+    ).scalar() or 0
+    
+    unique_clients = db.query(func.count(func.distinct(SalonTransaction.client_name))).filter(
+        and_(
+            SalonTransaction.sale_date >= start_date,
+            SalonTransaction.sale_date <= end_date,
+            SalonTransaction.client_name.isnot(None)
+        )
+    ).scalar() or 0
+    
+    # Get location and staff counts
+    total_locations = db.query(SalonLocation).filter_by(is_active=True).count()
     total_staff = db.query(SalonStaff).count()
-    active_staff = db.query(SalonStaff).filter_by(position_status='A').count()
+    active_staff = db.query(SalonStaff).filter_by(position_status='A - Active').count()
     
-    if current_data:
-        # Handle division by zero and ensure JSON-compliant values
-        utilization_values = [p.utilization_percent for p in current_data if p.utilization_percent is not None]
-        avg_utilization = sum(utilization_values) / len(utilization_values) if utilization_values else 0.0
-        
-        total_revenue = sum(p.net_sales or 0 for p in current_data)
-        new_clients = sum(p.new_client_count or 0 for p in current_data)
-    else:
-        avg_utilization = 0.0
-        total_revenue = 0.0
-        new_clients = 0
-    
-    # Ensure all values are JSON-compliant (no infinity or NaN)
-    import math
-    if math.isnan(avg_utilization) or math.isinf(avg_utilization):
-        avg_utilization = 0.0
+    # Calculate daily average
+    days_in_month = 30
+    avg_daily_revenue = total_revenue / days_in_month if total_revenue else 0
     
     return sanitize_float_value({
         "total_locations": total_locations,
         "total_staff": total_staff,
         "active_staff": active_staff,
-        "avg_utilization": float(avg_utilization),  # Ensure it's a proper float
+        "total_transactions": total_transactions,
         "total_revenue": float(total_revenue),
-        "new_clients": int(new_clients),
-        "period": latest_perf.isoformat() if latest_perf else None
+        "unique_clients": unique_clients,
+        "avg_daily_revenue": float(avg_daily_revenue),
+        "period": "January 2025"
     })
 
 @router.get("/dashboard/performance-trends")
@@ -298,57 +299,99 @@ async def get_performance_trends(
     db: Session = Depends(get_db)
     # Temporarily removed for demo: current_user: dict = Depends(get_current_active_user)
 ):
-    """Get performance trends over time"""
-    import math
+    """Get performance trends over time from transactions"""
+    from sqlalchemy import and_, extract
     
+    # Get daily trends for January 2025
     query = db.query(
-        StaffPerformance.period_date,
-        func.sum(StaffPerformance.net_sales).label('total_sales'),
-        func.avg(StaffPerformance.utilization_percent).label('avg_utilization'),
-        func.sum(StaffPerformance.appointment_count).label('total_appointments'),
-        func.sum(StaffPerformance.new_client_count).label('new_clients')
-    ).group_by(StaffPerformance.period_date)
+        SalonTransaction.sale_date,
+        func.count(SalonTransaction.id).label('transaction_count'),
+        func.sum(SalonTransaction.net_sales).label('total_sales'),
+        func.sum(SalonTransaction.net_service_sales).label('service_sales'),
+        func.count(func.distinct(SalonTransaction.client_name)).label('unique_clients')
+    ).filter(
+        SalonTransaction.sale_date >= date(2025, 1, 1)
+    ).group_by(SalonTransaction.sale_date)
     
     if location_id:
-        query = query.filter(StaffPerformance.location_id == location_id)
+        query = query.filter(SalonTransaction.location_id == location_id)
     
-    query = query.order_by(desc(StaffPerformance.period_date)).limit(months)
-    
+    query = query.order_by(SalonTransaction.sale_date)
     trends = query.all()
     
     result = []
     for trend in trends:
-        avg_util = float(trend.avg_utilization or 0)
-        if math.isnan(avg_util) or math.isinf(avg_util):
-            avg_util = 0.0
-            
         result.append({
-            "period": trend.period_date.isoformat(),
+            "period": trend.sale_date.isoformat(),
+            "transaction_count": int(trend.transaction_count or 0),
             "total_sales": float(trend.total_sales or 0),
-            "avg_utilization": avg_util,
-            "total_appointments": int(trend.total_appointments or 0),
-            "new_clients": int(trend.new_clients or 0)
+            "service_sales": float(trend.service_sales or 0) if trend.service_sales else 0,
+            "unique_clients": int(trend.unique_clients or 0)
         })
     
     return sanitize_float_value(result)
 
 @router.get("/dashboard/top-performers")
 async def get_top_performers(
-    metric: str = Query("sales", regex="^(sales|utilization|appointments|prebooking)$"),
+    metric: str = Query("sales", regex="^(sales|utilization|appointments|prebooking|transactions)$"),
     limit: int = Query(10, ge=1, le=50),
     db: Session = Depends(get_db)
     # Temporarily removed for demo: current_user: dict = Depends(get_current_active_user)
 ):
     """Get top performing staff by various metrics"""
-    import math
+    from sqlalchemy import and_
     
-    # Get latest performance date
+    # Get top performers from transaction data for January 2025
+    if metric in ["sales", "transactions"]:
+        query = db.query(
+            SalonTransaction.staff_id,
+            SalonStaff.full_name,
+            SalonLocation.name.label('location_name'),
+            func.count(SalonTransaction.id).label('transaction_count'),
+            func.sum(SalonTransaction.net_sales).label('total_sales'),
+            func.count(func.distinct(SalonTransaction.client_name)).label('unique_clients')
+        ).join(
+            SalonStaff, SalonTransaction.staff_id == SalonStaff.id
+        ).join(
+            SalonLocation, SalonTransaction.location_id == SalonLocation.id
+        ).filter(
+            and_(
+                SalonTransaction.sale_date >= date(2025, 1, 1),
+                SalonTransaction.sale_date <= date(2025, 1, 31)
+            )
+        ).group_by(
+            SalonTransaction.staff_id,
+            SalonStaff.full_name,
+            SalonLocation.name
+        )
+        
+        if metric == "sales":
+            query = query.order_by(desc(func.sum(SalonTransaction.net_sales)))
+        else:
+            query = query.order_by(desc(func.count(SalonTransaction.id)))
+        
+        performers = query.limit(limit).all()
+        
+        result = []
+        for p in performers:
+            result.append({
+                "staff_id": p.staff_id,
+                "staff_name": p.full_name,
+                "location": p.location_name,
+                "net_sales": float(p.total_sales or 0),
+                "transactions": int(p.transaction_count or 0),
+                "unique_clients": int(p.unique_clients or 0),
+                "avg_ticket": float(p.total_sales / p.transaction_count) if p.transaction_count else 0
+            })
+        
+        return sanitize_float_value(result)
+    
+    # Fall back to performance table for other metrics
     latest_perf = db.query(func.max(StaffPerformance.period_date)).scalar()
     
     if not latest_perf:
         return []
     
-    # Join with staff and location tables to ensure relationships are loaded
     from sqlalchemy.orm import joinedload
     
     query = db.query(StaffPerformance).options(
@@ -358,10 +401,7 @@ async def get_top_performers(
         StaffPerformance.period_date == latest_perf
     )
     
-    # Sort by requested metric
-    if metric == "sales":
-        query = query.order_by(desc(StaffPerformance.net_sales))
-    elif metric == "utilization":
+    if metric == "utilization":
         query = query.order_by(desc(StaffPerformance.utilization_percent))
     elif metric == "appointments":
         query = query.order_by(desc(StaffPerformance.appointment_count))
@@ -372,10 +412,10 @@ async def get_top_performers(
     
     result = []
     for p in performers:
-        # Ensure all float values are JSON-compliant
         utilization = float(p.utilization_percent or 0)
         prebooking = float(p.prebooked_percent or 0)
         
+        import math
         if math.isnan(utilization) or math.isinf(utilization):
             utilization = 0.0
         if math.isnan(prebooking) or math.isinf(prebooking):
@@ -444,6 +484,234 @@ async def debug_check_data(
             p.utilization_percent for p in performances[:5]
         ]
     }
+
+@router.get("/transactions/search")
+async def search_transactions(
+    search: Optional[str] = Query(None),
+    location_id: Optional[int] = Query(None),
+    staff_id: Optional[int] = Query(None),
+    sale_type: Optional[str] = Query(None),
+    start_date: Optional[date] = Query(None),
+    end_date: Optional[date] = Query(None),
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db)
+):
+    """Search and filter transactions with all available fields"""
+    from sqlalchemy import and_, or_
+    
+    query = db.query(SalonTransaction).join(
+        SalonLocation, SalonTransaction.location_id == SalonLocation.id, isouter=True
+    ).join(
+        SalonStaff, SalonTransaction.staff_id == SalonStaff.id, isouter=True
+    )
+    
+    filters = []
+    
+    if search:
+        search_term = f"%{search}%"
+        filters.append(or_(
+            SalonTransaction.client_name.ilike(search_term),
+            SalonTransaction.service_name.ilike(search_term),
+            SalonTransaction.sale_id.ilike(search_term)
+        ))
+    
+    if location_id:
+        filters.append(SalonTransaction.location_id == location_id)
+    
+    if staff_id:
+        filters.append(SalonTransaction.staff_id == staff_id)
+    
+    if sale_type:
+        filters.append(SalonTransaction.sale_type == sale_type)
+    
+    if start_date:
+        filters.append(SalonTransaction.sale_date >= start_date)
+    
+    if end_date:
+        filters.append(SalonTransaction.sale_date <= end_date)
+    
+    if filters:
+        query = query.filter(and_(*filters))
+    
+    # Get total count
+    total = query.count()
+    
+    # Get paginated results
+    transactions = query.order_by(desc(SalonTransaction.sale_date)).limit(limit).offset(offset).all()
+    
+    results = []
+    for t in transactions:
+        results.append({
+            "id": t.id,
+            "sale_id": t.sale_id,
+            "sale_date": t.sale_date.isoformat(),
+            "location": t.location.name if t.location else None,
+            "staff_name": t.staff.full_name if t.staff else None,
+            "client_name": t.client_name,
+            "service_name": t.service_name,
+            "sale_type": t.sale_type,
+            "net_service_sales": float(t.net_service_sales or 0),
+            "net_sales": float(t.net_sales or 0)
+        })
+    
+    return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "results": results
+    }
+
+@router.get("/analytics/service-breakdown")
+async def get_service_breakdown(
+    location_id: Optional[int] = Query(None),
+    start_date: Optional[date] = Query(date(2025, 1, 1)),
+    end_date: Optional[date] = Query(date(2025, 1, 31)),
+    db: Session = Depends(get_db)
+):
+    """Get service breakdown analytics"""
+    from sqlalchemy import and_
+    
+    query = db.query(
+        SalonTransaction.service_name,
+        func.count(SalonTransaction.id).label('count'),
+        func.sum(SalonTransaction.net_sales).label('revenue'),
+        func.avg(SalonTransaction.net_sales).label('avg_price')
+    ).filter(
+        and_(
+            SalonTransaction.sale_date >= start_date,
+            SalonTransaction.sale_date <= end_date,
+            SalonTransaction.service_name.isnot(None)
+        )
+    ).group_by(SalonTransaction.service_name)
+    
+    if location_id:
+        query = query.filter(SalonTransaction.location_id == location_id)
+    
+    services = query.order_by(desc(func.sum(SalonTransaction.net_sales))).limit(20).all()
+    
+    result = []
+    for s in services:
+        if s.service_name and s.service_name != 'NaN':
+            result.append({
+                "service_name": s.service_name,
+                "count": int(s.count),
+                "revenue": float(s.revenue or 0),
+                "avg_price": float(s.avg_price or 0)
+            })
+    
+    return sanitize_float_value(result)
+
+@router.get("/analytics/client-insights")
+async def get_client_insights(
+    location_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """Get client analytics and insights"""
+    from sqlalchemy import and_, func
+    
+    # Get client frequency distribution
+    client_visits = db.query(
+        SalonTransaction.client_name,
+        func.count(SalonTransaction.id).label('visit_count'),
+        func.sum(SalonTransaction.net_sales).label('total_spent')
+    ).filter(
+        and_(
+            SalonTransaction.sale_date >= date(2025, 1, 1),
+            SalonTransaction.sale_date <= date(2025, 1, 31),
+            SalonTransaction.client_name.isnot(None)
+        )
+    ).group_by(SalonTransaction.client_name)
+    
+    if location_id:
+        client_visits = client_visits.filter(SalonTransaction.location_id == location_id)
+    
+    client_visits = client_visits.all()
+    
+    # Categorize clients
+    new_clients = 0
+    returning_clients = 0
+    vip_clients = 0  # 5+ visits
+    total_client_revenue = 0
+    
+    for client in client_visits:
+        if client.visit_count == 1:
+            new_clients += 1
+        elif client.visit_count >= 5:
+            vip_clients += 1
+            returning_clients += 1
+        else:
+            returning_clients += 1
+        total_client_revenue += client.total_spent or 0
+    
+    avg_client_value = total_client_revenue / len(client_visits) if client_visits else 0
+    
+    return sanitize_float_value({
+        "total_clients": len(client_visits),
+        "new_clients": new_clients,
+        "returning_clients": returning_clients,
+        "vip_clients": vip_clients,
+        "avg_client_value": float(avg_client_value),
+        "total_revenue": float(total_client_revenue)
+    })
+
+@router.get("/analytics/daily-summary")
+async def get_daily_summary(
+    target_date: Optional[date] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """Get detailed daily summary"""
+    from sqlalchemy import and_
+    
+    if not target_date:
+        # Get the latest date with data
+        target_date = db.query(func.max(SalonTransaction.sale_date)).scalar()
+    
+    if not target_date:
+        return {"error": "No data available"}
+    
+    # Get all transactions for the day
+    transactions = db.query(SalonTransaction).filter(
+        SalonTransaction.sale_date == target_date
+    ).all()
+    
+    # Calculate summaries
+    by_location = {}
+    by_service_type = {}
+    by_staff = {}
+    
+    for t in transactions:
+        # By location
+        loc_name = t.location.name if t.location else "Unknown"
+        if loc_name not in by_location:
+            by_location[loc_name] = {"count": 0, "revenue": 0}
+        by_location[loc_name]["count"] += 1
+        by_location[loc_name]["revenue"] += t.net_sales or 0
+        
+        # By service type
+        service_type = t.sale_type or "Unknown"
+        if service_type not in by_service_type:
+            by_service_type[service_type] = {"count": 0, "revenue": 0}
+        by_service_type[service_type]["count"] += 1
+        by_service_type[service_type]["revenue"] += t.net_sales or 0
+        
+        # By staff
+        if t.staff:
+            staff_name = t.staff.full_name
+            if staff_name not in by_staff:
+                by_staff[staff_name] = {"count": 0, "revenue": 0}
+            by_staff[staff_name]["count"] += 1
+            by_staff[staff_name]["revenue"] += t.net_sales or 0
+    
+    return sanitize_float_value({
+        "date": target_date.isoformat(),
+        "total_transactions": len(transactions),
+        "total_revenue": float(sum(t.net_sales or 0 for t in transactions)),
+        "unique_clients": len(set(t.client_name for t in transactions if t.client_name)),
+        "by_location": by_location,
+        "by_service_type": by_service_type,
+        "top_staff": dict(sorted(by_staff.items(), key=lambda x: x[1]["revenue"], reverse=True)[:10])
+    })
 
 def setup_salon_endpoints(app):
     """Setup salon endpoints in the main app"""

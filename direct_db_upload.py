@@ -257,6 +257,146 @@ def upload_transaction_data(session, file_path, year):
     
     print(f"✓ Created {total_records} transaction records")
 
+def upload_timeclock_data(session, file_path, year):
+    """Upload time clock data"""
+    print(f"Uploading {year} time clock data...")
+    
+    # Read in chunks due to large file size
+    chunk_size = 10000
+    total_records = 0
+    
+    for chunk in pd.read_csv(file_path, chunksize=chunk_size):
+        records_in_chunk = 0
+        for _, row in chunk.iterrows():
+            # Get staff
+            staff_name = row.get('Employee Name', '')
+            if not staff_name:
+                continue
+                
+            staff = session.execute(
+                text("SELECT id FROM salon_staff WHERE full_name = :name"),
+                {"name": staff_name}
+            ).first()
+            
+            if not staff:
+                continue  # Skip if staff not found
+            
+            # Parse dates and times
+            clock_date = pd.to_datetime(row.get('Date'), errors='coerce')
+            clock_in = pd.to_datetime(row.get('Clock In'), errors='coerce')
+            clock_out = pd.to_datetime(row.get('Clock Out'), errors='coerce')
+            
+            if pd.notna(clock_date):
+                # Calculate hours worked
+                hours_worked = 0
+                if pd.notna(clock_in) and pd.notna(clock_out):
+                    hours_worked = (clock_out - clock_in).total_seconds() / 3600
+                
+                session.execute(
+                    text("""INSERT INTO salon_time_clock 
+                    (staff_id, clock_date, clock_in_time, clock_out_time, 
+                     hours_worked, created_at)
+                    VALUES (:staff, :date, :in_time, :out_time, :hours, NOW())
+                    ON CONFLICT (staff_id, clock_date) DO UPDATE SET
+                        clock_in_time = EXCLUDED.clock_in_time,
+                        clock_out_time = EXCLUDED.clock_out_time,
+                        hours_worked = EXCLUDED.hours_worked"""),
+                    {
+                        "staff": staff[0],
+                        "date": clock_date.date(),
+                        "in_time": clock_in if pd.notna(clock_in) else None,
+                        "out_time": clock_out if pd.notna(clock_out) else None,
+                        "hours": float(hours_worked)
+                    }
+                )
+                records_in_chunk += 1
+        
+        session.commit()
+        total_records += records_in_chunk
+        print(f"  Processed {total_records} records...")
+    
+    print(f"✓ Created/Updated {total_records} time clock records")
+
+def upload_schedule_data(session, file_path):
+    """Upload schedule data"""
+    print(f"Uploading schedule data...")
+    
+    # Read in chunks due to large file size
+    chunk_size = 10000
+    total_records = 0
+    
+    for chunk in pd.read_csv(file_path, chunksize=chunk_size):
+        records_in_chunk = 0
+        for _, row in chunk.iterrows():
+            # Get staff
+            staff_name = row.get('Staff Name', '')
+            if not staff_name:
+                continue
+                
+            staff = session.execute(
+                text("SELECT id FROM salon_staff WHERE full_name = :name"),
+                {"name": staff_name}
+            ).first()
+            
+            if not staff:
+                continue  # Skip if staff not found
+            
+            # Get location
+            location_name = row.get('Location', '')
+            location = session.execute(
+                text("SELECT id FROM salon_locations WHERE name = :name"),
+                {"name": location_name}
+            ).first()
+            
+            if not location:
+                # Create location if it doesn't exist
+                result = session.execute(
+                    text("INSERT INTO salon_locations (name, is_active, created_at) "
+                         "VALUES (:name, true, NOW()) RETURNING id"),
+                    {"name": location_name}
+                )
+                location_id = result.first()[0]
+            else:
+                location_id = location[0]
+            
+            # Parse dates
+            schedule_date = pd.to_datetime(row.get('Schedule Date'), errors='coerce')
+            start_time = pd.to_datetime(row.get('Start Time'), errors='coerce')
+            end_time = pd.to_datetime(row.get('End Time'), errors='coerce')
+            
+            if pd.notna(schedule_date):
+                # Calculate scheduled hours
+                scheduled_hours = 0
+                if pd.notna(start_time) and pd.notna(end_time):
+                    scheduled_hours = (end_time - start_time).total_seconds() / 3600
+                
+                session.execute(
+                    text("""INSERT INTO salon_schedules 
+                    (staff_id, location_id, schedule_date, start_time, 
+                     end_time, scheduled_hours, created_at)
+                    VALUES (:staff, :loc, :date, :start, :end, :hours, NOW())
+                    ON CONFLICT (staff_id, schedule_date) DO UPDATE SET
+                        location_id = EXCLUDED.location_id,
+                        start_time = EXCLUDED.start_time,
+                        end_time = EXCLUDED.end_time,
+                        scheduled_hours = EXCLUDED.scheduled_hours"""),
+                    {
+                        "staff": staff[0],
+                        "loc": location_id,
+                        "date": schedule_date.date(),
+                        "start": start_time if pd.notna(start_time) else None,
+                        "end": end_time if pd.notna(end_time) else None,
+                        "hours": float(scheduled_hours)
+                    }
+                )
+                records_in_chunk += 1
+        
+        session.commit()
+        total_records += records_in_chunk
+        print(f"  Processed {total_records} records...")
+    
+    print(f"✓ Created/Updated {total_records} schedule records")
+
 def main():
     print("=" * 60)
     print("DIRECT DATABASE UPLOAD FOR SALON DATA")
@@ -279,23 +419,36 @@ def main():
         # Upload performance data
         if os.path.exists(FILES['performance_2024']):
             upload_performance_data(session, FILES['performance_2024'], 2024)
-            
+        
         if os.path.exists(FILES['performance_2025']):
             upload_performance_data(session, FILES['performance_2025'], 2025)
         
         # Upload transaction data
         if os.path.exists(FILES['transactions_2024']):
             upload_transaction_data(session, FILES['transactions_2024'], 2024)
-            
+        
         if os.path.exists(FILES['transactions_2025']):
             upload_transaction_data(session, FILES['transactions_2025'], 2025)
+        
+        # Upload time clock data
+        if os.path.exists(FILES['timeclock_2024']):
+            upload_timeclock_data(session, FILES['timeclock_2024'], 2024)
+        
+        if os.path.exists(FILES['timeclock_2025']):
+            upload_timeclock_data(session, FILES['timeclock_2025'], 2025)
+        
+        # Upload schedule data
+        if os.path.exists(FILES['schedules']):
+            upload_schedule_data(session, FILES['schedules'])
         
         print("\n✓ Data upload complete!")
         print("\nUploaded:")
         print("  • Staff data")
         print("  • Performance data (2024 & 2025)")
         print("  • Transaction data (2024 & 2025)")
-        print("\nYour salon analytics dashboard should now show real data!")
+        print("  • Time clock data (2024 & 2025)")
+        print("  • Schedule records")
+        print("\nYour salon analytics dashboard should now have complete data!")
         
     except Exception as e:
         print(f"Error: {e}")

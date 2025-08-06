@@ -47,6 +47,38 @@ class SalonApi {
     return response.data;
   }
 
+  async getServiceBreakdown(locationId?: number) {
+    const params = locationId ? { location_id: locationId } : {};
+    const response = await this.axiosInstance.get('/analytics/service-breakdown', { params });
+    return response.data;
+  }
+
+  async getClientInsights(locationId?: number) {
+    const params = locationId ? { location_id: locationId } : {};
+    const response = await this.axiosInstance.get('/analytics/client-insights', { params });
+    return response.data;
+  }
+
+  async searchTransactions(params: {
+    search?: string;
+    location_id?: number;
+    staff_id?: number;
+    sale_type?: string;
+    start_date?: string;
+    end_date?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    const response = await this.axiosInstance.get('/transactions/search', { params });
+    return response.data;
+  }
+
+  async getDailySummary(date?: string) {
+    const params = date ? { target_date: date } : {};
+    const response = await this.axiosInstance.get('/analytics/daily-summary', { params });
+    return response.data;
+  }
+
   // Analytics endpoints
   async getCapacityUtilization(locationId?: number) {
     const params = locationId ? { location_id: locationId } : {};
