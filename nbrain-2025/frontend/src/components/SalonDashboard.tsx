@@ -17,6 +17,7 @@ import {
   Activity, UserCheck, Package, Star, Target, AlertCircle
 } from 'lucide-react';
 import { salonApi } from '@/services/salonApi';
+import SalonAIChat from './SalonAIChat';
 
 const SalonDashboard = () => {
   // State management
@@ -398,13 +399,14 @@ const SalonDashboard = () => {
 
       {/* Rest of the dashboard tabs */}
       <Tabs defaultValue="performance">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList>
           <TabsTrigger value="performance">Performance</TabsTrigger>
           <TabsTrigger value="staff">Staff</TabsTrigger>
           <TabsTrigger value="services">Services</TabsTrigger>
           <TabsTrigger value="clients">Clients</TabsTrigger>
           <TabsTrigger value="transactions">Transactions</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="ai-assistant">AI Assistant</TabsTrigger>
         </TabsList>
 
         <TabsContent value="performance" className="space-y-4">
@@ -661,6 +663,10 @@ const SalonDashboard = () => {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="ai-assistant" className="h-[600px]">
+          <SalonAIChat />
         </TabsContent>
       </Tabs>
 

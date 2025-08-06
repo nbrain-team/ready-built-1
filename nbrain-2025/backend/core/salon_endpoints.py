@@ -241,6 +241,8 @@ async def get_staff(
 
 @router.get("/dashboard/overview")
 async def get_dashboard_overview(
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
     db: Session = Depends(get_db)
     # Temporarily removed for demo: current_user: dict = Depends(get_current_active_user)
 ):
@@ -248,30 +250,62 @@ async def get_dashboard_overview(
     from sqlalchemy import and_
     from datetime import datetime, timedelta
     
-    # Get January 2025 data from salon_transactions
-    start_date = date(2025, 1, 1)
-    end_date = date(2025, 1, 31)
+    # Parse date parameters or use defaults
+    if start_date:
+        try:
+            start = datetime.strptime(start_date, "%Y-%m-%d").date()
+        except:
+            start = date(2025, 1, 1)
+    else:
+        # Default to last 30 days
+        start = date.today() - timedelta(days=30)
+    
+    if end_date:
+        try:
+            end = datetime.strptime(end_date, "%Y-%m-%d").date()
+        except:
+            end = date(2025, 1, 31)
+    else:
+        # Default to today
+        end = date.today()
     
     # Get transaction-based metrics
     total_transactions = db.query(func.count(SalonTransaction.id)).filter(
         and_(
-            SalonTransaction.sale_date >= start_date,
-            SalonTransaction.sale_date <= end_date
+            SalonTransaction.sale_date >= start,
+            SalonTransaction.sale_date <= end
         )
     ).scalar() or 0
     
     total_revenue = db.query(func.sum(SalonTransaction.net_sales)).filter(
         and_(
-            SalonTransaction.sale_date >= start_date,
-            SalonTransaction.sale_date <= end_date
+            SalonTransaction.sale_date >= start,
+            SalonTransaction.sale_date <= end
         )
     ).scalar() or 0
     
     unique_clients = db.query(func.count(func.distinct(SalonTransaction.client_name))).filter(
         and_(
-            SalonTransaction.sale_date >= start_date,
-            SalonTransaction.sale_date <= end_date,
+            SalonTransaction.sale_date >= start,
+            SalonTransaction.sale_date <= end,
             SalonTransaction.client_name.isnot(None)
+        )
+    ).scalar() or 0
+    
+    # Get service and product sales separately
+    service_sales = db.query(func.sum(SalonTransaction.net_sales)).filter(
+        and_(
+            SalonTransaction.sale_date >= start,
+            SalonTransaction.sale_date <= end,
+            SalonTransaction.sale_type == 'service'
+        )
+    ).scalar() or 0
+    
+    product_sales = db.query(func.sum(SalonTransaction.net_sales)).filter(
+        and_(
+            SalonTransaction.sale_date >= start,
+            SalonTransaction.sale_date <= end,
+            SalonTransaction.sale_type == 'product'
         )
     ).scalar() or 0
     
@@ -280,9 +314,10 @@ async def get_dashboard_overview(
     total_staff = db.query(SalonStaff).count()
     active_staff = db.query(SalonStaff).filter_by(position_status='A - Active').count()
     
-    # Calculate daily average
-    days_in_month = 30
-    avg_daily_revenue = total_revenue / days_in_month if total_revenue else 0
+    # Calculate daily average and average ticket
+    days_in_period = (end - start).days + 1
+    avg_daily_revenue = total_revenue / days_in_period if total_revenue and days_in_period > 0 else 0
+    avg_ticket = total_revenue / total_transactions if total_transactions > 0 else 0
     
     return sanitize_float_value({
         "total_locations": total_locations,
@@ -292,20 +327,41 @@ async def get_dashboard_overview(
         "total_revenue": float(total_revenue),
         "unique_clients": unique_clients,
         "avg_daily_revenue": float(avg_daily_revenue),
-        "period": "January 2025"
+        "avg_ticket": float(avg_ticket),
+        "service_sales": float(service_sales),
+        "product_sales": float(product_sales),
+        "period": f"{start.strftime('%Y-%m-%d')} to {end.strftime('%Y-%m-%d')}"
     })
 
 @router.get("/dashboard/performance-trends")
 async def get_performance_trends(
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
     location_id: Optional[int] = Query(None),
-    months: int = Query(6, ge=1, le=24),
     db: Session = Depends(get_db)
     # Temporarily removed for demo: current_user: dict = Depends(get_current_active_user)
 ):
     """Get performance trends over time from transactions"""
     from sqlalchemy import and_, extract
     
-    # Get daily trends for January 2025
+    # Parse date parameters
+    if start_date:
+        try:
+            start = datetime.strptime(start_date, "%Y-%m-%d").date()
+        except:
+            start = date(2025, 1, 1)
+    else:
+        start = date.today() - timedelta(days=30)
+    
+    if end_date:
+        try:
+            end = datetime.strptime(end_date, "%Y-%m-%d").date()
+        except:
+            end = date(2025, 1, 31)
+    else:
+        end = date.today()
+    
+    # Get daily trends
     query = db.query(
         SalonTransaction.sale_date,
         func.count(SalonTransaction.id).label('transaction_count'),
@@ -313,7 +369,10 @@ async def get_performance_trends(
         func.sum(SalonTransaction.net_service_sales).label('service_sales'),
         func.count(func.distinct(SalonTransaction.client_name)).label('unique_clients')
     ).filter(
-        SalonTransaction.sale_date >= date(2025, 1, 1)
+        and_(
+            SalonTransaction.sale_date >= start,
+            SalonTransaction.sale_date <= end
+        )
     ).group_by(SalonTransaction.sale_date)
     
     if location_id:
