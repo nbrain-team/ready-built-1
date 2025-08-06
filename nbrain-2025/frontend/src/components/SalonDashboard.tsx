@@ -281,7 +281,7 @@ const SalonDashboard = () => {
       {/* Floating AI Assistant Button */}
       <Button
         onClick={() => setShowAIPanel(true)}
-        className="fixed top-20 right-6 z-40 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg rounded-full p-4"
+        className="fixed bottom-6 right-6 z-40 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg rounded-full p-4 hover:scale-110 transition-transform"
       >
         <Sparkles className="h-5 w-5 mr-2" />
         AI Assistant
