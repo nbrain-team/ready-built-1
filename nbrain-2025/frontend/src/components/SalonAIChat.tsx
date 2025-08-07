@@ -266,17 +266,19 @@ const SalonAIChat: React.FC = () => {
 
   try {
     return (
-      <div className="h-full flex flex-col bg-white rounded-lg shadow-sm overflow-hidden">
-        <div className="px-4 py-3 border-b flex-shrink-0 bg-white">
+      <div className="h-full w-full flex flex-col bg-white rounded-lg border border-gray-200">
+        {/* Header */}
+        <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
           <div className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-blue-500" />
             <h3 className="font-semibold text-gray-900">Salon AI Analytics Assistant</h3>
           </div>
         </div>
         
-        <div className="flex-1 flex flex-col p-4 overflow-hidden">
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col min-h-0 p-4">
           {/* Sample Questions */}
-          <div className="mb-3 flex-shrink-0">
+          <div className="mb-3">
             <p className="text-xs text-gray-500 mb-2">Try asking:</p>
             <div className="flex flex-wrap gap-2">
               {SAMPLE_QUESTIONS.slice(0, 3).map((question, idx) => (
@@ -293,8 +295,8 @@ const SalonAIChat: React.FC = () => {
             </div>
           </div>
 
-          {/* Messages Container */}
-          <div className="flex-1 overflow-y-auto mb-3 pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+          {/* Messages Container with proper scroll */}
+          <div className="flex-1 overflow-y-auto min-h-0 mb-4 pr-2">
             <div className="space-y-4">
               {messages.map((message) => (
                 <div
@@ -342,8 +344,8 @@ const SalonAIChat: React.FC = () => {
             </div>
           </div>
 
-          {/* Input Area - Fixed at bottom */}
-          <div className="flex gap-2 flex-shrink-0 pt-2 border-t bg-white">
+          {/* Input Area - Always visible at bottom */}
+          <div className="flex gap-2 pt-2 border-t border-gray-200">
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -352,7 +354,11 @@ const SalonAIChat: React.FC = () => {
               disabled={loading}
               className="flex-1"
             />
-            <Button onClick={handleSend} disabled={loading || !input.trim()} size="sm" className="flex-shrink-0">
+            <Button 
+              onClick={handleSend} 
+              disabled={loading || !input.trim()} 
+              size="sm"
+            >
               <Send className="h-4 w-4" />
             </Button>
           </div>

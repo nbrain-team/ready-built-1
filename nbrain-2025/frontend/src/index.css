@@ -33,20 +33,51 @@
     --command-center-bg: #ffffff;
 }
 
+/* Global styles */
 html, body {
-    height: 100%;
-    margin: 0;
-    overflow: hidden;
-}
-
-body {
-    font-family: 'Inter', system-ui, Arial, sans-serif;
-    background: var(--bg);
-    color: var(--text-primary);
+  height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 #root {
-    height: 100%;
+  min-height: 100%;
+}
+
+/* Remove any overflow restrictions on the main content area */
+.content-area {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Ensure the main app container is scrollable */
+body {
+  overflow-y: auto !important;
+}
+
+/* Custom scrollbar styles */
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #555;
 }
 
 code {

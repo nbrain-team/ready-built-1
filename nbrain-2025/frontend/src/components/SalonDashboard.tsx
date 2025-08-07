@@ -325,8 +325,8 @@ const SalonDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen overflow-y-auto">
-      <div className="p-6 space-y-6 relative">
+    <div className="w-full h-screen overflow-y-auto bg-gray-50">
+      <div className="p-6 pb-20">
         {/* Floating AI Assistant Button */}
         <Button
           onClick={() => setShowAIPanel(true)}
@@ -813,8 +813,8 @@ const SalonDashboard = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="ai-assistant" className="relative h-[calc(100vh-300px)] min-h-[500px]">
-            <div className="absolute inset-0">
+          <TabsContent value="ai-assistant" className="relative">
+            <div className="h-[500px] w-full">
               <SalonAIChat />
             </div>
           </TabsContent>
