@@ -25,6 +25,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import SocialMediaCalendar from './pages/SocialMediaCalendar';
 import SalonDashboard from './components/SalonDashboard';
 import SalonLogin from './pages/SalonLogin';
+import SalonLanding from './pages/SalonLanding';
 import ProtectedSalonRoute from './components/ProtectedSalonRoute';
 import './styles/animations.css';
 
@@ -56,10 +57,17 @@ function AppRoutes() {
     setMessages([]);
   }, [isAuthenticated]);
 
+  // Check if we're in salon mode
+  const isSalonMode = window.location.pathname.startsWith('/salon');
+
   return (
     <Router>
       <Routes>
+        {/* Default route - redirect to salon login */}
+        <Route path="/" element={<Navigate to="/salon-login" replace />} />
+        
         {/* Salon routes - separate from main app */}
+        <Route path="/salon-landing" element={<SalonLanding />} />
         <Route path="/salon-login" element={<SalonLogin />} />
         <Route 
           path="/salon" 
@@ -89,7 +97,7 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/*"
+          path="/app/*"
           element={
             <AuthenticatedRoute>
               <MainLayout onNewChat={() => setMessages([])}>
@@ -109,7 +117,7 @@ function AppRoutes() {
                   <Route path="/client/:clientId" element={<ClientDetail />} />
                   <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/social-calendar" element={<SocialMediaCalendar />} />
-                  <Route path="*" element={<Navigate to="/" />} />
+                  <Route path="*" element={<Navigate to="/app" />} />
                 </Routes>
               </MainLayout>
             </AuthenticatedRoute>
