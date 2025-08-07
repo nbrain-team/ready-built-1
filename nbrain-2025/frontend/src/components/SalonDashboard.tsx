@@ -192,15 +192,22 @@ const SalonDashboard = () => {
       return [];
     }
 
-    return dashboardData.trends.map(day => ({
-      date: new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      value: selectedMetric === 'revenue' ? day.revenue :
-             selectedMetric === 'transactions' ? day.transaction_count :
-             selectedMetric === 'clients' ? day.unique_clients :
-             selectedMetric === 'ticket' ? day.average_ticket :
-             selectedMetric === 'services' ? day.service_count :
-             day.product_count || 0
-    }));
+    return dashboardData.trends.map(day => {
+      // Parse date string properly to avoid timezone issues
+      // Split the ISO date string and create date with local timezone
+      const [year, month, dayNum] = day.date.split('-').map(Number);
+      const localDate = new Date(year, month - 1, dayNum); // month is 0-indexed
+      
+      return {
+        date: localDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        value: selectedMetric === 'revenue' ? day.revenue :
+               selectedMetric === 'transactions' ? day.transaction_count :
+               selectedMetric === 'clients' ? day.unique_clients :
+               selectedMetric === 'ticket' ? day.average_ticket :
+               selectedMetric === 'services' ? day.service_count :
+               day.product_count || 0
+      };
+    });
   };
 
   // Helper functions
@@ -567,7 +574,12 @@ const SalonDashboard = () => {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis 
                       dataKey="date" 
-                      tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      tickFormatter={(value) => {
+                        // Parse date string properly to avoid timezone issues
+                        const [year, month, day] = value.split('-').map(Number);
+                        const localDate = new Date(year, month - 1, day);
+                        return localDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      }}
                     />
                     <YAxis yAxisId="left" />
                     <YAxis yAxisId="right" orientation="right" tickFormatter={(value) => formatCurrency(value)} />
@@ -781,7 +793,12 @@ const SalonDashboard = () => {
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis 
                         dataKey="date" 
-                        tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        tickFormatter={(value) => {
+                          // Parse date string properly to avoid timezone issues
+                          const [year, month, day] = value.split('-').map(Number);
+                          const localDate = new Date(year, month - 1, day);
+                          return localDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                        }}
                       />
                       <YAxis tickFormatter={(value) => formatCurrency(value)} />
                       <Tooltip content={customTooltip} />
@@ -801,7 +818,12 @@ const SalonDashboard = () => {
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis 
                         dataKey="date" 
-                        tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        tickFormatter={(value) => {
+                          // Parse date string properly to avoid timezone issues
+                          const [year, month, day] = value.split('-').map(Number);
+                          const localDate = new Date(year, month - 1, day);
+                          return localDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                        }}
                       />
                       <YAxis />
                       <Tooltip />

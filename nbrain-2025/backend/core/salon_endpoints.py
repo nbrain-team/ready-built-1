@@ -384,7 +384,7 @@ async def get_performance_trends(
     result = []
     for trend in trends:
         result.append({
-            "period": trend.sale_date.isoformat(),
+            "period": trend.sale_date.strftime('%Y-%m-%d'),  # Use strftime instead of isoformat
             "transaction_count": int(trend.transaction_count or 0),
             "total_sales": float(trend.total_sales or 0),
             "service_sales": float(trend.service_sales or 0) if trend.service_sales else 0,
